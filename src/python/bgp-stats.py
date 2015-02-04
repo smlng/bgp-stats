@@ -65,44 +65,49 @@ def print_warn(*objs):
 def print_error(*objs):
     print("[ERROR] ", *objs, file=sys.stderr)
 
-def getPtree ():
-    pass
+def getPtree (fin):
+    f = (BZ2File(fin, 'rb'), gzip.open(fin, 'rb'))[fin.lower().endswith('.gz')]
+    data = mrtx.parse_mrt_file(f, print_progress=verbose)
+    f.close()
+    ptree = radix.Radix()
+    for prefix, origins in data.items():
+        pnode = ptree.add(prefix)
+        pnode.data['asn'] = origins
+    return ptree
 
 def getStats (ptree):
-    print_log("call getStat")
+    print_log("call getStats")
     pfxlen = dict()
-    asnbgs = dict()
     for p in ptree:
         pl = int(p.prefixlen)
         if pl not in pfxlen:
             pfxlen[pl] = list()
         pfxlen[pl].append(p.prefix)
-        if len(reserved_ipv4 & IPSet([p.prefix])) > 0:
-            if p.data['asn'] not in asnbgs:
-                asnbgs[p.data['asn']] = list()
-            asnbgs[p.data['asn']].append(p.prefix)
-            print_warn("AS %s announces bogus prefix (%s)" % (p.data['asn'],p.prefix))
-    num_depth = 0
-    sum_depth = 0
     pl_dict = dict()
+    pfxmoas = 0
     for pl in pfxlen:
         pl_dict[pl] = len(pfxlen[pl])
-        num_depth = num_depth + pl*len(pfxlen[pl])
-        sum_depth = sum_depth + len(pfxlen[pl])
-    
+        if pl_dict[pl] > 1:
+            pfxmoas += 1 
     pkeys = sorted(pfxlen.keys(),reverse=False)
-    allIPs = IPSet(['0.0.0.0/0'])
-    reservedIPs = reserved_ipv4
     prefixIPs = IPSet()
     for pk in pkeys:
         print_info ("prefix length: "+str(pk)+", #prefixes: "+ str(len(pfxlen[pk])))
         prefixIPs = prefixIPs | IPSet(pfxlen[pk])
-        reservedIPs = reservedIPs - IPSet(pfxlen[pk])
     num_bogus_ips = len(prefixIPs & reserved_ipv4)
-    return pl_dict, num_bogus_ips
+    return pl_dict, num_bogus_ips, pfxmoas
 
 def getDiffs (pt0, pt1):
     pass
+
+def outputStats (pl, pb, pm):
+    print_log("call outputStats")
+    output = ''
+    for p in sorted(pl.keys()):
+        output += str(pl[p])+'; '
+    output += str(pb)+'; '
+    output += str(pm)
+    print(output)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -170,11 +175,9 @@ def main():
     elif single:
         print_log("mode: single")
         if os.path.isfile(single):
-            ipath, filename = os.path.split(single)
-            opath = '.'
-            maptype, subtype = parsePathname(ipath)
-            opts = parseFilename(filename, ipath, opath, maptype, subtype)
-            convertFile(opts)
+            pt0 = getPtree(single)
+            pl, pb, pm = getStats(pt0)
+            outputStats(pl,pb,pm)
         else:
             print_error("File not found (%s)!" % (single))
     else:
