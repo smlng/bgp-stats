@@ -98,15 +98,10 @@ def getStats (ptree):
         print_info ("prefix length: "+str(pk)+", #prefixes: "+ str(len(pfxlen[pk])))
         prefixIPs = prefixIPs | IPSet(pfxlen[pk])
         reservedIPs = reservedIPs - IPSet(pfxlen[pk])
-    num_prefix_ips = len(prefixIPs)
-    num_reserved_ips = len(reserved_ipv4)
-    num_usable_ips = len(allIPs - reserved_ipv4)
     num_bogus_ips = len(prefixIPs & reserved_ipv4)
-    num_prefixes = len(ptree.prefixes())
-    avg_prefixlen = round(float(num_depth)/float(sum_depth),2)
-    return pl_dict, num_prefixes, avg_prefixlen, num_usable_ips, num_prefix_ips, num_reserved_ips, num_bogus_ips, asnbgs
+    return pl_dict, num_bogus_ips
 
-def getDiff ():
+def getDiffs (pt0, pt1):
     pass
 
 def main():

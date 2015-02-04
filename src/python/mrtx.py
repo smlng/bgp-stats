@@ -75,28 +75,20 @@ Both version 1 & 2 TABLE_DUMPS are supported, as well as 32bit ASNs. However, th
         #   in 1.2, we ignored origins of as_paths ending in as_set (with one AS - quite common - or multiple )
         #   as well as origins of as_paths with more than three segments (very few)
         #   this was a silly bug, andthese prefixes (129 in a total of 513000 prefixes for 2014-05-23) weren't saved
-
         if mrt.prefix not in results:
-            try:
-                #if mrt.prefix in ("162.212.40.0/24", "192.88.192.0/24", "199.193.100.0/22", "207.35.39.0/24"):
-                #    print("  DEBUG %s for %s" % (mrt.as_path, mrt.prefix), file=stderr)
-                origin = mrt.as_path.origin_as
-                results[mrt.prefix] = [origin]
-            except:
-                print("  Error parsing prefix '%s'" % (mrt.prefix), file=stderr)  # to aid debugging
-                raise
-        else:
+            results[mrt.prefix] = list()
+
+        # in TD2, no prefix appears twice. (probably because we use *only entry 0 of records* -- is this ok?)
+        # in TD1, they do, "but we are only interested in getting the first match" (quote from asn v1.2)
+        try:
             assert mrt.type == mrt.TYPE_TABLE_DUMP
-            # in TD2, no prefix appears twice. (probably because we use *only entry 0 of records* -- is this ok?)
-            # in TD1, they do, "but we are only interested in getting the first match" (quote from asn v1.2)
-            #          for one TD1 dump checked: all duplicate prefixes had same origin (we don't assert all for speed)
-            try:
-                origin = mrt.as_path.origin_as
-                if origin not in results[mrt.prefix]:
-                    results[mrt.prefix].append(origin)
-            except:
-                print("  Error parsing prefix '%s'" % (mrt.prefix), file=stderr)  # to aid debugging
-                raise
+            #if mrt.prefix in ("162.212.40.0/24", "192.88.192.0/24", "199.193.100.0/22", "207.35.39.0/24"):
+            #    print("  DEBUG %s for %s" % (mrt.as_path, mrt.prefix), file=stderr)
+            origin = mrt.as_path.origin_as
+            results[mrt.prefix].append(origin)
+        except:
+            print("  Error parsing prefix '%s'" % (mrt.prefix), file=stderr)  # to aid debugging
+            raise
 
         n += 1
         if debug_break_after and n > debug_break_after:
