@@ -114,12 +114,11 @@ def main():
     parser.add_argument('-l', '--logging',      help='Ouptut logging.', action='store_true')
     parser.add_argument('-w', '--warning',      help='Output warnings.', action='store_true')
     parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
-    parser.add_argument('-t', '--threads',      help='Use threads, for parallel and faster processing.', action='store_true')
-    parser.add_argument('-n', '--numworker',    help='Number of worker threads (Default 4).', default='4')
-    parser.add_argument('-i', '--inputdir',     help='Path to bgpdump files, bulk mode only. Defaults to current directory.', default='.')
-    parser.add_argument('-o', '--outputdir',    help='Path to store output, bulk mode only. Defaults to INPUTDIR directory.', default='')
-    parser.add_argument('-s', '--single',       help='Convert a single file, output to <filename>.gz in current directory.', default='')
-    parser.add_argument('-b', '--bulk',         help='Convert a bunch of files, see also input/outputdir.', action='store_true')
+    parser.add_argument('-t', '--threads',      help='Use N threads, for parallel and faster processing.', type=int, default=1)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-s', '--single',       help='Convert a single file, output to <filename>.gz in current directory.', default='')
+    group.add_argument('-b', '--bulk',         help='Convert a bunch of files, see also input/outputdir.', default='')
+    parser.add_argument('-r', '--recursive',   help='Search directories recursivly if in bulk mode.', action='store_true')
     args = vars(parser.parse_args())
     
     global verbose
@@ -136,48 +135,39 @@ def main():
     bulk = args['bulk']
     single = args['single']
 
-    num_worker = 4
-    try:
-        num_worker = int(args['numworker'])
-    except:
-        print_warn("Unable to set number of worker threads to %s" % (args['numworker']))
-
     print_log("START: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    if bulk:
+    if len(bulk) > 0:
         print_log('mode: bulk')
-        ipath = args['inputdir']
-        opath = args['outputdir']
-        if len(opath) == 0:
-            opath = ipath
-        if not (os.path.isdir(ipath) and os.path.isdir(opath)):
-            print_error("Invalid path for INPUTDIR and/or OUTPUTDIR!")
+
+        if not (os.path.isdir(bulk)):
+            print_error("Invalid path for bulk processing!")
             exit(1)
         
         maptype, subtype = parsePathname(ipath)
 
-        if not (os.path.isdir(ipath) and os.path.isdir(opath)):
-            print_error("Invalid path for INPUTDIR and/or OUTPUTDIR!")
-            exit(1)
-        print_info("INPUTDIR (%s), OUTPUTDIR (%s)." % (ipath,opath))
-        all_files = [ f for f in os.listdir(ipath) if os.path.isfile(os.path.join(ipath,f)) ]
-        work_load = []
-        for f in all_files:
-            opts = parseFilename(f, ipath, opath, maptype, subtype)
-            if len(opts) > 0:
-                work_load.append(opts)
-        if threads:
-            pool = Pool(num_worker)
-            pool.map(convertFile, work_load)
+        all_files = []
+        if recursive:
+            for dirpath, dirnames, filenames in os.walk(bulk):
+                for filename in [f for f in filenames if (re_file_rv.match(f) or re_file_rr.match(f))]:
+                    all_files.append(os.path.join(dirpath, filename))
         else:
-            for work in work_load:
-                convertFile(work)
+            for filename in [f for f in os.listdir(bulk) if (re_file_rv.match(f) or re_file_rr.match(f))]:
+                all_files.append(os.path.join(bulk, filename))
 
-    elif single:
+        for i in range(len(all_files)-1):
+            pt0 = getPtree(all_files[i])
+            pl0, pb0, pm0 = getStats(pt0)
+            outputStats(pl0,pb0,pm0)
+            pt1 = getPtree(all_files[i+1])
+            pl1, pb1, pm1 = getStats(pt1)
+            outputStats(pl1,pb1,pm1)
+
+    elif len(single) > 0:
         print_log("mode: single")
         if os.path.isfile(single):
             pt0 = getPtree(single)
-            pl, pb, pm = getStats(pt0)
-            outputStats(pl,pb,pm)
+            pl0, pb0, pm0 = getStats(pt0)
+            outputStats(pl0,pb0,pm0)
         else:
             print_error("File not found (%s)!" % (single))
     else:
