@@ -161,6 +161,7 @@ def main():
             pt1 = getPtree(all_files[i+1])
             pl1, pb1, pm1 = getStats(pt1)
             outputStats(pl1,pb1,pm1)
+            getDiffs(pt0,pt1)
 
     elif len(single) > 0:
         print_log("mode: single")
