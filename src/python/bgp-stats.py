@@ -112,6 +112,7 @@ def getStats (ptree):
     return pl_dict, num_pfx_ips, num_bogus_ips, pfxmoas
 
 def getDiffs (pt0, pt1):
+    print_log("call getDiffs")
     num_ips_changed = 0
     num_pfx_agg = 0
     num_pfx_deagg = 0
@@ -131,22 +132,6 @@ def getDiffs (pt0, pt1):
                     num_ips_changed += 2 ** (32 - pn0.prefixlen)
     ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_pfx_agg, num_pfx_deagg]
     return ret
-
-
-def outputStats (ts, mt, st, pl, pi, pb, pm):
-    print_log("call outputStats")
-    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
-    for p in sorted(pl.keys()):
-        output += str(pl[p])+';'
-    output += str(pi)+';'
-    output += str(pb)+';'
-    output += str(pm)
-    print(output)
-
-def outputDiffs(ts0,ts1,mt,st,diffs):
-    output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
-    output += ';'.join(str(x) for x in diffs)
-    print(output)
 
 def parseFilename(fin):
     print_log("call parseFilename (%s)" % (fin))
@@ -184,6 +169,20 @@ def parseFilename(fin):
     ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
+def outputStats (ts, mt, st, pl, pi, pb, pm):
+    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
+    for p in sorted(pl.keys()):
+        output += str(pl[p])+';'
+    output += str(pi)+';'
+    output += str(pb)+';'
+    output += str(pm)
+    print(output)
+
+def outputDiffs(ts0,ts1,mt,st,diffs):
+    output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
+    output += ';'.join(str(x) for x in diffs)
+    print(output)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--logging',      help='Ouptut logging.', action='store_true')
@@ -204,7 +203,6 @@ def main():
 
     global logging
     logging   = args['logging']
-
 
     recursive = args['recursive']
     threads   = args['threads']
@@ -248,7 +246,6 @@ def main():
                 outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
                 outputDiffs(ts0,ts1,mt0,st0,diffs)
             
-
     elif single:
         print_log("mode: single")
         if os.path.isfile(single):
