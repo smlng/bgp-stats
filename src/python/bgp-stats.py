@@ -13,14 +13,18 @@ from datetime import datetime, timedelta
 from bz2 import BZ2File
 from time import sleep
 from netaddr import IPSet, IPNetwork
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count, Lock
+from collections import deque, OrderedDict
 
 import mrtx
 
 verbose = False
 warning = False
-threads = False
 logging = False
+
+ptree_limit = 1
+ptree_cache = OrderedDict()
+ptree_lock = Lock()
 
 re_file_rv = re.compile('rib.(\d+).(\d\d\d\d).bz2')
 re_file_rr = re.compile('bview.(\d+).(\d\d\d\d).gz')
@@ -69,6 +73,25 @@ def print_error(*objs):
     print("[ERROR] ", *objs, file=sys.stderr)
 
 def getPtree (fin):
+    print_log("call getPtree (%s)" % (fin))
+    ts, mt, st = parseFilename(fin)
+    global ptree_lock
+    global ptree_cache
+
+    ptree_lock.acquire()
+    if ts not in ptree_cache:
+        ptree_cache[ts] = loadPtree(fin)
+
+    if len(ptree_cache) > ptree_limit:
+        ptree_cache.popitem(last=False)
+
+    ptree = ptree_cache[ts]
+    ptree_lock.release()
+
+    return ptree
+
+def loadPtree(fin):
+    print_log("call loadPtree (%s)", % (fin))
     f = (BZ2File(fin, 'rb'), gzip.open(fin, 'rb'))[fin.lower().endswith('.gz')]
     data = mrtx.parse_mrt_file(f, print_progress=verbose)
     f.close()
@@ -80,7 +103,6 @@ def getPtree (fin):
         for o in origins:
             pnode.data['asn'].append(o)
             pnode.data['moas'] += 1
-        #print_info(str(pnode.data['moas'])+" : "+','.join(str(x) for x in pnode.data['asn']))
     return ptree
 
 def getStats (ptree):
@@ -114,8 +136,8 @@ def getStats (ptree):
 def getDiffs (pt0, pt1):
     print_log("call getDiffs")
     num_ips_changed = 0
-    num_pfx_agg = 0
-    num_pfx_deagg = 0
+    num_ips_agg = 0
+    num_ips_deagg = 0
     pt0IPs = IPSet(pt0.prefixes()) - reserved_ipv4
     pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
     num_ips_new = len(pt1IPs - pt0IPs)
@@ -126,11 +148,11 @@ def getDiffs (pt0, pt1):
             if pn1:
                 if pn0.prefix != pn1.prefix:
                     if pn0.prefixlen > pn1.prefixlen:
-                        num_pfx_agg += 1
+                        num_ips_agg += 2 ** (32 - pn0.prefixlen)
                     elif pn0.prefixlen < pn1.prefixlen:
-                        num_pfx_deagg += 1
+                        num_ips_deagg += 2 ** (32 - pn0.prefixlen)
                     num_ips_changed += 2 ** (32 - pn0.prefixlen)
-    ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_pfx_agg, num_pfx_deagg]
+    ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_ips_agg, num_ips_deagg]
     return ret
 
 def parseFilename(fin):
@@ -169,6 +191,30 @@ def parseFilename(fin):
     ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
+def worker(opts):
+    if len(opts) != 2:
+        print_error("worker: Invalid number of arguments!")
+        return
+
+    fin0 = opts[0]
+    fin1 = opts[1]
+
+    print_log("call worker(\n\tfin0: %s\n\tfin1: %s)" % (fin0,fin1))
+
+    ts0, mt0, st0 = parseFilename(fin0)
+    ts1, mt1, st1 = parseFilename(fin1)
+    if (mt0 == mt1) and (st0 == st1):
+        pt0 = getPtree(fin0)
+        pt1 = getPtree(fin1)
+
+        pl0, pi0, pb0, pm0 = getStats(pt0)
+        pl1, pi1, pb1, pm1 = getStats(pt1)
+        diffs = getDiffs(pt0, pt1)
+
+        outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
+        outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
+        outputDiffs(ts0,ts1,mt0,st0,diffs)
+
 def outputStats (ts, mt, st, pl, pi, pb, pm):
     output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
     for p in sorted(pl.keys()):
@@ -204,8 +250,18 @@ def main():
     global logging
     logging   = args['logging']
 
-        recursive = args['recursive']
+    recursive = args['recursive']
     threads   = args['threads']
+
+    max_threads = cpu_count() - 1
+
+    if threads < 1:
+        threads = 1
+    elif threads > max_threads:
+        print_warn("Be reasonable! THREADS to high, set to %d." % (max_threads))
+        threads = max_threads
+    global ptree_limit
+    ptree_limit = threads+2
 
     bulk      = args['bulk']
     single    = args['single']
@@ -231,25 +287,36 @@ def main():
 
         all_files.sort()
 
+        work_load = []
         for i in range(len(all_files)-1):
-            fin0 = all_files[i]
-            ts0, mt0, st0 = parseFilename(fin0)
+            work_load.append([all_files[i],all_files[i+1]])
 
-            fin1 = all_files[i+1]
-            ts1, mt1, st1 = parseFilename(fin1)
+        if threads > 1:
+            pool = Pool(threads)
+            pool.map(worker, work_load)
+        else:
+            for w in work_load:
+                worker(w)
+            '''
+            for i in range(len(all_files)-1):
+                fin0 = all_files[i]
+                ts0, mt0, st0 = parseFilename(fin0)
 
-            if (mt0 == mt1) and (st0 == st1):
-                pt0 = getPtree(fin0)
-                pl0, pi0, pb0, pm0 = getStats(pt0)
+                fin1 = all_files[i+1]
+                ts1, mt1, st1 = parseFilename(fin1)
 
-                pt1 = getPtree(fin1)
-                pl1, pi1, pb1, pm1 = getStats(pt1)
-                diffs = getDiffs(pt0, pt1)
+                if (mt0 == mt1) and (st0 == st1):
+                    pt0 = getPtree(fin0)
+                    pl0, pi0, pb0, pm0 = getStats(pt0)
 
-                outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
-                outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
-                outputDiffs(ts0,ts1,mt0,st0,diffs)
-            
+                    pt1 = getPtree(fin1)
+                    pl1, pi1, pb1, pm1 = getStats(pt1)
+                    diffs = getDiffs(pt0, pt1)
+
+                    outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
+                    outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
+                    outputDiffs(ts0,ts1,mt0,st0,diffs)
+            '''
     elif single:
         print_log("mode: single")
         if os.path.isfile(single):
