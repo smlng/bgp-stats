@@ -91,7 +91,7 @@ def getPtree (fin):
     return ptree
 
 def loadPtree(fin):
-    print_log("call loadPtree (%s)", % (fin))
+    print_log("call loadPtree (%s)" % (fin))
     f = (BZ2File(fin, 'rb'), gzip.open(fin, 'rb'))[fin.lower().endswith('.gz')]
     data = mrtx.parse_mrt_file(f, print_progress=verbose)
     f.close()
