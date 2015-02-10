@@ -75,17 +75,17 @@ def print_error(*objs):
 def getPtree (fin):
     print_log("call getPtree (%s)" % (fin))
     ts, mt, st = parseFilename(fin)
-    global ptree_lock
-    global ptree_cache
 
+    global ptree_lock
     ptree_lock.acquire()
+
+    global ptree_cache
     if ts not in ptree_cache:
         ptree_cache[ts] = loadPtree(fin)
-
     if len(ptree_cache) > ptree_limit:
         ptree_cache.popitem(last=False)
-
     ptree = ptree_cache[ts]
+
     ptree_lock.release()
 
     return ptree
@@ -143,15 +143,17 @@ def getDiffs (pt0, pt1):
     num_ips_new = len(pt1IPs - pt0IPs)
     num_ips_del = len(pt0IPs - pt1IPs)
     for pn0 in pt0:
-        if IPNetwork(pn0.prefix) not in reserved_ipv4:
-            pn1 = pt1.search_best(pn0.network)
+        ipn0 = IPNetwork(pn0.prefix)
+        if ipn0 not in reserved_ipv4:
+            pn1 = pt1.search_best(str(ipn0[abs(len(ipn0)/2)]))
             if pn1:
-                if pn0.prefix != pn1.prefix:
-                    if pn0.prefixlen > pn1.prefixlen:
-                        num_ips_agg += 2 ** (32 - pn0.prefixlen)
-                    elif pn0.prefixlen < pn1.prefixlen:
-                        num_ips_deagg += 2 ** (32 - pn0.prefixlen)
-                    num_ips_changed += 2 ** (32 - pn0.prefixlen)
+                ipn1 = IPNetwork(pn1.prefix)
+                if ipn0 != ipn1:
+                    if ipn0.prefixlen > ipn1.prefixlen:
+                        num_ips_agg += 2 ** (32 - ipn0.prefixlen)
+                    elif ipn0.prefixlen < ipn1.prefixlen:
+                        num_ips_deagg += 2 ** (32 - ipn0.prefixlen)
+                    num_ips_changed += 2 ** (32 - ipn0.prefixlen)
     ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_ips_agg, num_ips_deagg]
     return ret
 
@@ -333,7 +335,7 @@ def main():
     end_time = datetime.now()
     print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
     done_time = end_time - start_time
-    print_log("  processing time [s]: " + done_time.total_seconds())
+    print_log("  processing time [s]: " + str(done_time.total_seconds()))
 
 
 if __name__ == "__main__":
