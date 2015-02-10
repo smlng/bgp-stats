@@ -81,7 +81,7 @@ Both version 1 & 2 TABLE_DUMPS are supported, as well as 32bit ASNs. However, th
         # in TD2, no prefix appears twice. (probably because we use *only entry 0 of records* -- is this ok?)
         # in TD1, they do, "but we are only interested in getting the first match" (quote from asn v1.2)
         try:
-            assert mrt.type == mrt.TYPE_TABLE_DUMP
+            assert mrt.type in [mrt.TYPE_TABLE_DUMP, mrt.TYPE_TABLE_DUMP_V2]
             #if mrt.prefix in ("162.212.40.0/24", "192.88.192.0/24", "199.193.100.0/22", "207.35.39.0/24"):
             #    print("  DEBUG %s for %s" % (mrt.as_path, mrt.prefix), file=stderr)
             origin = mrt.as_path.origin_as

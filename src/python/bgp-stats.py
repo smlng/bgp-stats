@@ -9,21 +9,28 @@ import argparse
 import gzip
 import calendar
 import radix
-from datetime import datetime
+from datetime import datetime, timedelta
 from bz2 import BZ2File
 from time import sleep
-from netaddr import IPSet
-from multiprocessing import Pool
+from netaddr import IPSet, IPNetwork
+from multiprocessing import Pool, cpu_count, Lock
+from collections import deque, OrderedDict
 
 import mrtx
 
 verbose = False
 warning = False
-threads = False
 logging = False
+
+ptree_limit = 1
+ptree_cache = OrderedDict()
+ptree_lock = Lock()
 
 re_file_rv = re.compile('rib.(\d+).(\d\d\d\d).bz2')
 re_file_rr = re.compile('bview.(\d+).(\d\d\d\d).gz')
+
+re_path_rv = re.compile('.*/([a-z0-9\.-]+)/bgpdata/\d\d\d\d.\d\d/RIBS.*')
+re_path_rr = re.compile('.*/(rrc\d\d)/\d\d\d\d.\d\d.*')
 
 reserved_ipv4 = IPSet (['0.0.0.0/8',                                        # host on this network (RFC1122)
                         '10.0.0.0/8','172.16.0.0/12','192.168.0.0/16',      # private address space (RFC1918)
@@ -66,47 +73,162 @@ def print_error(*objs):
     print("[ERROR] ", *objs, file=sys.stderr)
 
 def getPtree (fin):
+    print_log("call getPtree (%s)" % (fin))
+    ts, mt, st = parseFilename(fin)
+
+    global ptree_lock
+    ptree_lock.acquire()
+
+    global ptree_cache
+    if ts not in ptree_cache:
+        ptree_cache[ts] = loadPtree(fin)
+    if len(ptree_cache) > ptree_limit:
+        ptree_cache.popitem(last=False)
+    ptree = ptree_cache[ts]
+
+    ptree_lock.release()
+
+    return ptree
+
+def loadPtree(fin):
+    print_log("call loadPtree (%s)"  % (fin))
     f = (BZ2File(fin, 'rb'), gzip.open(fin, 'rb'))[fin.lower().endswith('.gz')]
     data = mrtx.parse_mrt_file(f, print_progress=verbose)
     f.close()
     ptree = radix.Radix()
     for prefix, origins in data.items():
         pnode = ptree.add(prefix)
-        pnode.data['asn'] = origins
+        pnode.data['asn'] = list()
+        pnode.data['moas'] = 0
+        for o in origins:
+            pnode.data['asn'].append(o)
+            pnode.data['moas'] += 1
     return ptree
 
 def getStats (ptree):
     print_log("call getStats")
     pfxlen = dict()
+    pfxmoas = 0
     for p in ptree:
         pl = int(p.prefixlen)
+        if p.data['moas'] > 1:
+            pfxmoas += 1
         if pl not in pfxlen:
             pfxlen[pl] = list()
         pfxlen[pl].append(p.prefix)
     pl_dict = dict()
-    pfxmoas = 0
+    # init with all 0
+    for i in range(32):
+        pl_dict[i+1] = 0
+
     for pl in pfxlen:
         pl_dict[pl] = len(pfxlen[pl])
-        if pl_dict[pl] > 1:
-            pfxmoas += 1 
+
     pkeys = sorted(pfxlen.keys(),reverse=False)
     prefixIPs = IPSet()
     for pk in pkeys:
         print_info ("prefix length: "+str(pk)+", #prefixes: "+ str(len(pfxlen[pk])))
         prefixIPs = prefixIPs | IPSet(pfxlen[pk])
     num_bogus_ips = len(prefixIPs & reserved_ipv4)
-    return pl_dict, num_bogus_ips, pfxmoas
+    num_pfx_ips = len(prefixIPs)
+    return pl_dict, num_pfx_ips, num_bogus_ips, pfxmoas
 
 def getDiffs (pt0, pt1):
-    pass
+    print_log("call getDiffs")
+    num_ips_changed = 0
+    num_ips_agg = 0
+    num_ips_deagg = 0
+    pt0IPs = IPSet(pt0.prefixes()) - reserved_ipv4
+    pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
+    num_ips_new = len(pt1IPs - pt0IPs)
+    num_ips_del = len(pt0IPs - pt1IPs)
+    for pn0 in pt0:
+        ipn0 = IPNetwork(pn0.prefix)
+        if ipn0 not in reserved_ipv4:
+            pn1 = pt1.search_best(str(ipn0[abs(len(ipn0)/2)]))
+            if pn1:
+                ipn1 = IPNetwork(pn1.prefix)
+                if ipn0 != ipn1:
+                    if ipn0.prefixlen > ipn1.prefixlen:
+                        num_ips_agg += 2 ** (32 - ipn0.prefixlen)
+                    elif ipn0.prefixlen < ipn1.prefixlen:
+                        num_ips_deagg += 2 ** (32 - ipn0.prefixlen)
+                    num_ips_changed += 2 ** (32 - ipn0.prefixlen)
+    ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_ips_agg, num_ips_deagg]
+    return ret
 
-def outputStats (pl, pb, pm):
-    print_log("call outputStats")
-    output = ''
+def parseFilename(fin):
+    print_log("call parseFilename (%s)" % (fin))
+
+    maptype = 'none'
+    subtype = 'none'
+    pn, fn = os.path.split(fin)
+
+    if re_path_rr.match(pn):
+        m = re_path_rr.match(pn)
+        maptype = 'riperis'
+        subtype = m.group(1)
+    elif re_path_rv.match(pn):
+        m = re_path_rv.match(pn)
+        maptype = 'routeviews'
+        subtype = m.group(1)
+    else:
+        print_warn("Unknown BGP data source (pathname).")
+
+    date = '19700101'
+    time = '0000'
+    if re_file_rr.match(fn):
+        maptype = 'riperis'
+        m = re_file_rr.match(fn)
+        date = m.group(1)
+        time = m.group(2)
+    elif re_file_rv.match(fn):
+        maptype = 'routeviews'
+        m = re_file_rv.match(fn)
+        date = m.group(1)
+        time = m.group(2)
+    else:
+        print_warn("Unknown BGP data source (filename).")
+    dt = "%s-%s-%s %s:%s" % (str(date[0:4]),str(date[4:6]),str(date[6:8]),str(time[0:2]),str(time[2:4]))
+    ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
+    return ts, maptype, subtype
+
+def worker(opts):
+    if len(opts) != 2:
+        print_error("worker: Invalid number of arguments!")
+        return
+
+    fin0 = opts[0]
+    fin1 = opts[1]
+
+    print_log("call worker(\n\tfin0: %s\n\tfin1: %s)" % (fin0,fin1))
+
+    ts0, mt0, st0 = parseFilename(fin0)
+    ts1, mt1, st1 = parseFilename(fin1)
+    if (mt0 == mt1) and (st0 == st1):
+        pt0 = getPtree(fin0)
+        pt1 = getPtree(fin1)
+
+        pl0, pi0, pb0, pm0 = getStats(pt0)
+        pl1, pi1, pb1, pm1 = getStats(pt1)
+        diffs = getDiffs(pt0, pt1)
+
+        outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
+        outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
+        outputDiffs(ts0,ts1,mt0,st0,diffs)
+
+def outputStats (ts, mt, st, pl, pi, pb, pm):
+    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
     for p in sorted(pl.keys()):
-        output += str(pl[p])+'; '
-    output += str(pb)+'; '
+        output += str(pl[p])+';'
+    output += str(pi)+';'
+    output += str(pb)+';'
     output += str(pm)
+    print(output)
+
+def outputDiffs(ts0,ts1,mt,st,diffs):
+    output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
+    output += ';'.join(str(x) for x in diffs)
     print(output)
 
 def main():
@@ -115,9 +237,9 @@ def main():
     parser.add_argument('-w', '--warning',      help='Output warnings.', action='store_true')
     parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
     parser.add_argument('-t', '--threads',      help='Use N threads, for parallel and faster processing.', type=int, default=1)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-s', '--single',       help='Convert a single file, output to <filename>.gz in current directory.', default='')
-    group.add_argument('-b', '--bulk',         help='Convert a bunch of files, see also input/outputdir.', default='')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-s', '--single',       help='Convert a single file, output to <filename>.gz in current directory.')
+    group.add_argument('-b', '--bulk',         help='Convert a bunch of files, see also input/outputdir.')
     parser.add_argument('-r', '--recursive',   help='Search directories recursivly if in bulk mode.', action='store_true')
     args = vars(parser.parse_args())
     
@@ -128,22 +250,33 @@ def main():
     warning   = args['warning']
 
     global logging
-    logging = args['logging']
+    logging   = args['logging']
 
-    threads = args['threads']
+    recursive = args['recursive']
+    threads   = args['threads']
 
-    bulk = args['bulk']
-    single = args['single']
+    max_threads = cpu_count() - 1
 
-    print_log("START: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    if len(bulk) > 0:
+    if threads < 1:
+        threads = 1
+    elif threads > max_threads:
+        print_warn("Be reasonable! THREADS to high, set to %d." % (max_threads))
+        threads = max_threads
+    global ptree_limit
+    ptree_limit = threads+2
+
+    bulk      = args['bulk']
+    single    = args['single']
+
+    start_time = datetime.now()
+
+    print_log("START: " + start_time.strftime('%Y-%m-%d %H:%M:%S'))
+    if bulk:
         print_log('mode: bulk')
 
         if not (os.path.isdir(bulk)):
             print_error("Invalid path for bulk processing!")
             exit(1)
-        
-        maptype, subtype = parsePathname(ipath)
 
         all_files = []
         if recursive:
@@ -154,28 +287,37 @@ def main():
             for filename in [f for f in os.listdir(bulk) if (re_file_rv.match(f) or re_file_rr.match(f))]:
                 all_files.append(os.path.join(bulk, filename))
 
-        for i in range(len(all_files)-1):
-            pt0 = getPtree(all_files[i])
-            pl0, pb0, pm0 = getStats(pt0)
-            outputStats(pl0,pb0,pm0)
-            pt1 = getPtree(all_files[i+1])
-            pl1, pb1, pm1 = getStats(pt1)
-            outputStats(pl1,pb1,pm1)
-            getDiffs(pt0,pt1)
+        all_files.sort()
 
-    elif len(single) > 0:
+        work_load = []
+        for i in range(len(all_files)-1):
+            work_load.append([all_files[i],all_files[i+1]])
+
+        if threads > 1:
+            pool = Pool(threads)
+            pool.map(worker, work_load)
+        else:
+            for w in work_load:
+                worker(w)
+
+    elif single:
         print_log("mode: single")
         if os.path.isfile(single):
+            ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = getPtree(single)
-            pl0, pb0, pm0 = getStats(pt0)
-            outputStats(pl0,pb0,pm0)
+            pl0, pi0, pb0, pm0 = getStats(pt0)
+            outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
         else:
             print_error("File not found (%s)!" % (single))
     else:
         print_error("Missing parameter: choose bulk or single mode!")
         exit(1)
 
-    print_log("FINISH: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    end_time = datetime.now()
+    print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
+    done_time = end_time - start_time
+    print_log("  processing time [s]: " + str(done_time.total_seconds()))
+
 
 if __name__ == "__main__":
     main()
