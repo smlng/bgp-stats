@@ -9,7 +9,7 @@ import argparse
 import gzip
 import calendar
 import radix
-from datetime import datetime
+from datetime import datetime, timedelta
 from bz2 import BZ2File
 from time import sleep
 from netaddr import IPSet, IPNetwork
@@ -204,13 +204,15 @@ def main():
     global logging
     logging   = args['logging']
 
-    recursive = args['recursive']
+        recursive = args['recursive']
     threads   = args['threads']
 
     bulk      = args['bulk']
     single    = args['single']
 
-    print_log("START: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    start_time = datetime.now()
+
+    print_log("START: " + start_time.strftime('%Y-%m-%d %H:%M:%S'))
     if bulk:
         print_log('mode: bulk')
 
@@ -226,6 +228,8 @@ def main():
         else:
             for filename in [f for f in os.listdir(bulk) if (re_file_rv.match(f) or re_file_rr.match(f))]:
                 all_files.append(os.path.join(bulk, filename))
+
+        all_files.sort()
 
         for i in range(len(all_files)-1):
             fin0 = all_files[i]
@@ -259,7 +263,11 @@ def main():
         print_error("Missing parameter: choose bulk or single mode!")
         exit(1)
 
-    print_log("FINISH: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    end_time = datetime.now()
+    print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
+    done_time = end_time - start_time
+    print_log("  processing time [s]: " + done_time.total_seconds())
+
 
 if __name__ == "__main__":
     main()
