@@ -1,21 +1,22 @@
 #!/usr/bin/python
 
 from __future__ import print_function
-import sys
-import subprocess
-import os
-import re
+
 import argparse
 import gzip
-import calendar
+import os
 import radix
-from datetime import datetime, timedelta
-from bz2 import BZ2File
-from time import sleep
-from netaddr import IPSet, IPNetwork
-from multiprocessing import Pool, cpu_count, Lock
-from collections import deque, OrderedDict
+import re
+import sys
 
+from bz2 import BZ2File
+from collections import OrderedDict
+from copy import deepcopy
+from datetime import datetime, timedelta
+from multiprocessing import Pool, cpu_count, Lock
+from netaddr import IPSet, IPNetwork
+
+# own imports
 import mrtx
 
 verbose = False
@@ -210,8 +211,8 @@ def worker(opts):
     ts0, mt0, st0 = parseFilename(fin0)
     ts1, mt1, st1 = parseFilename(fin1)
     if (mt0 == mt1) and (st0 == st1):
-        pt0 = radix.Radix(getPtree(fin0))
-        pt1 = radix.Radix(getPtree(fin1))
+        pt0 = deepcopy(getPtree(fin0))
+        pt1 = deepcopy(getPtree(fin1))
 
         pl0, pi0, pb0, pm0 = getStats(pt0)
         pl1, pi1, pb1, pm1 = getStats(pt1)
