@@ -26,6 +26,9 @@ ptree_limit = 1
 ptree_cache = OrderedDict()
 ptree_lock = Lock()
 
+stats_print = []
+stats_lock = Lock()
+
 re_file_rv = re.compile('rib.(\d+).(\d\d\d\d).bz2')
 re_file_rr = re.compile('bview.(\d+).(\d\d\d\d).gz')
 
@@ -78,15 +81,16 @@ def getPtree (fin):
 
     global ptree_lock
     ptree_lock.acquire()
-
-    global ptree_cache
-    if ts not in ptree_cache:
-        ptree_cache[ts] = loadPtree(fin)
-    if len(ptree_cache) > ptree_limit:
-        ptree_cache.popitem(last=False)
-    ptree = ptree_cache[ts]
-
-    ptree_lock.release()
+    try:
+        global ptree_cache
+        k = str(ts)+'_'+mt+'_'+st
+        if k not in ptree_cache:
+            ptree_cache[k] = loadPtree(fin)
+        if len(ptree_cache) > ptree_limit:
+            ptree_cache.popitem(last=False)
+        ptree = ptree_cache[k]
+    finally:
+        ptree_lock.release()
 
     return ptree
 
@@ -206,8 +210,8 @@ def worker(opts):
     ts0, mt0, st0 = parseFilename(fin0)
     ts1, mt1, st1 = parseFilename(fin1)
     if (mt0 == mt1) and (st0 == st1):
-        pt0 = getPtree(fin0)
-        pt1 = getPtree(fin1)
+        pt0 = radix.Radix(getPtree(fin0))
+        pt1 = radix.Radix(getPtree(fin1))
 
         pl0, pi0, pb0, pm0 = getStats(pt0)
         pl1, pi1, pb1, pm1 = getStats(pt1)
@@ -218,13 +222,22 @@ def worker(opts):
         outputDiffs(ts0,ts1,mt0,st0,diffs)
 
 def outputStats (ts, mt, st, pl, pi, pb, pm):
-    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
-    for p in sorted(pl.keys()):
-        output += str(pl[p])+';'
-    output += str(pi)+';'
-    output += str(pb)+';'
-    output += str(pm)
-    print(output)
+    global stats_lock
+    stats_lock.acquire()
+    try:
+        global stats_print
+        k = str(ts)+'_'+mt+'_'+st
+        if k not in stats_print:
+            stats_print.append(k)
+            output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
+            for p in sorted(pl.keys()):
+                output += str(pl[p])+';'
+            output += str(pi)+';'
+            output += str(pb)+';'
+            output += str(pm)
+            print(output)
+    finally:
+        stats_lock.release()
 
 def outputDiffs(ts0,ts1,mt,st,diffs):
     output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
@@ -253,17 +266,17 @@ def main():
     logging   = args['logging']
 
     recursive = args['recursive']
-    threads   = args['threads']
+    numthreads   = args['threads']
 
     max_threads = cpu_count() - 1
 
-    if threads < 1:
-        threads = 1
-    elif threads > max_threads:
+    if numthreads < 1:
+        numthreads = 1
+    elif numthreads > max_threads:
         print_warn("Be reasonable! THREADS to high, set to %d." % (max_threads))
-        threads = max_threads
+        numthreads = max_threads
     global ptree_limit
-    ptree_limit = threads+2
+    ptree_limit = numthreads+2
 
     bulk      = args['bulk']
     single    = args['single']
@@ -293,8 +306,8 @@ def main():
         for i in range(len(all_files)-1):
             work_load.append([all_files[i],all_files[i+1]])
 
-        if threads > 1:
-            pool = Pool(threads)
+        if numthreads > 1:
+            pool = Pool(numthreads)
             pool.map(worker, work_load)
             pool.close()
             pool.join()
