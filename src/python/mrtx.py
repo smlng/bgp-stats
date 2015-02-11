@@ -206,7 +206,8 @@ class MrtRecord:
         assert len(buf) == mrt.data_len
         if mrt.type == MrtRecord.TYPE_TABLE_DUMP:
             assert mrt.sub_type in (MrtRecord.T1_AFI_IPv4, MrtRecord.T1_AFI_IPv6)  # only allow this
-            mrt.table = MrtTableDump1(buf, mrt.sub_type)
+            if mrt.sub_type == MrtRecord.T1_AFI_IPv4:
+                mrt.table = MrtTableDump1(buf, mrt.sub_type)
         elif mrt.type == MrtRecord.TYPE_TABLE_DUMP_V2:
             assert mrt.sub_type in (MrtRecord.T2_PEER_INDEX_TABLE, MrtRecord.T2_RIB_IPV4_UNICAST, MrtRecord.T2_RIB_IPV6_UNICAST)  # only allow these
             # among them, T2_PEER_INDEX_TABLE provides BGP ID of the collector, and list of peers; we don't use it
