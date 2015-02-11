@@ -295,7 +295,7 @@ def main():
 
         if threads > 1:
             pool = Pool(threads)
-            pool.map(worker, work_load, 1)
+            pool.map(worker, work_load)
             pool.close()
             pool.join()
         else:
