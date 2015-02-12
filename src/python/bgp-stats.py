@@ -237,6 +237,7 @@ def outputStats (ts, mt, st, pl, pi, pb, pm):
             output += str(pb)+';'
             output += str(pm)
             print(output)
+            sys.stdout.flush()
     finally:
         stats_lock.release()
 
@@ -244,6 +245,7 @@ def outputDiffs(ts0,ts1,mt,st,diffs):
     output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
     output += ';'.join(str(x) for x in diffs)
     print(output)
+    sys.stdout.flush()
 
 def main():
     parser = argparse.ArgumentParser()
@@ -269,7 +271,7 @@ def main():
     recursive = args['recursive']
     numthreads   = args['threads']
 
-    max_threads = cpu_count() - 1
+    max_threads = cpu_count() - 1 if (cpu_count() > 2) else 1
 
     if numthreads < 1:
         numthreads = 1
@@ -304,7 +306,7 @@ def main():
         all_files.sort()
         print_log("matching files: %d" % (len(all_files)))
         work_load = []
-        print_log("tasks in workload: %d" % (len(workload)))
+        print_log("tasks in workload: %d" % (len(work_load)))
         for i in range(len(all_files)-1):
             work_load.append([all_files[i],all_files[i+1]])
 
