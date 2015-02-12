@@ -302,14 +302,15 @@ def main():
                 all_files.append(os.path.join(bulk, filename))
 
         all_files.sort()
-
+        print_log("matching files: %d" % (len(all_files)))
         work_load = []
+        print_log("tasks in workload: %d" % (len(workload)))
         for i in range(len(all_files)-1):
             work_load.append([all_files[i],all_files[i+1]])
 
         if numthreads > 1:
-            pool = Pool(numthreads)
-            pool.map(worker, work_load)
+            pool = Pool(processes=numthreads)
+            pool.map(worker, work_load, chunksize=1)
             pool.close()
             pool.join()
         else:
