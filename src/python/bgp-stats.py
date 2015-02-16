@@ -11,9 +11,8 @@ import sys
 
 from bz2 import BZ2File
 from collections import OrderedDict
-from copy import deepcopy
 from datetime import datetime, timedelta
-from multiprocessing import Pool, cpu_count, Lock
+from multiprocessing import Process, Queue
 from netaddr import IPSet, IPNetwork
 
 # own imports
@@ -23,12 +22,12 @@ verbose = False
 warning = False
 logging = False
 
-ptree_limit = 1
+queue_limit = 7
+
+ptree_limit = 3
 ptree_cache = OrderedDict()
-ptree_lock = Lock()
 
 stats_print = []
-stats_lock = Lock()
 
 re_file_rv = re.compile('rib.(\d+).(\d\d\d\d).bz2')
 re_file_rr = re.compile('bview.(\d+).(\d\d\d\d).gz')
@@ -79,20 +78,13 @@ def print_error(*objs):
 def getPtree (fin):
     print_log("call getPtree (%s)" % (fin))
     ts, mt, st = parseFilename(fin)
-
-    global ptree_lock
-    ptree_lock.acquire()
-    try:
-        global ptree_cache
-        k = str(ts)+'_'+mt+'_'+st
-        if k not in ptree_cache:
-            ptree_cache[k] = loadPtree(fin)
-        if len(ptree_cache) > ptree_limit:
-            ptree_cache.popitem(last=False)
-        ptree = ptree_cache[k]
-    finally:
-        ptree_lock.release()
-
+    global ptree_cache
+    k = str(ts)+'_'+mt+'_'+st
+    if k not in ptree_cache:
+        ptree_cache[k] = loadPtree(fin)
+    if len(ptree_cache) > ptree_limit:
+        ptree_cache.popitem(last=False)
+    ptree = ptree_cache[k]
     return ptree
 
 def loadPtree(fin):
@@ -198,7 +190,7 @@ def parseFilename(fin):
     ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
-def worker(opts):
+def singleWorker(wd, opts):
     if len(opts) != 2:
         print_error("worker: Invalid number of arguments!")
         return
@@ -206,57 +198,138 @@ def worker(opts):
     fin0 = opts[0]
     fin1 = opts[1]
 
-    print_log("call worker(\n\tfin0: %s\n\tfin1: %s)" % (fin0,fin1))
+    print_log("call singleWorker(\n\tfin0: %s\n\tfin1: %s)" % (fin0,fin1))
 
     ts0, mt0, st0 = parseFilename(fin0)
     ts1, mt1, st1 = parseFilename(fin1)
     if (mt0 == mt1) and (st0 == st1):
-        pt0 = deepcopy(getPtree(fin0))
-        pt1 = deepcopy(getPtree(fin1))
+        pt0 = getPtree(fin0)
+        pt1 = getPtree(fin1)
 
         pl0, pi0, pb0, pm0 = getStats(pt0)
         pl1, pi1, pb1, pm1 = getStats(pt1)
         diffs = getDiffs(pt0, pt1)
 
-        outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
-        outputStats(ts1,mt1,st1,pl1,pi1,pb1,pm1)
-        outputDiffs(ts0,ts1,mt0,st0,diffs)
+        outputStats(wd,ts0,mt0,st0,pl0,pi0,pb0,pm0)
+        outputStats(wd,ts1,mt1,st1,pl1,pi1,pb1,pm1)
+        outputDiffs(wd,ts0,ts1,mt0,st0,diffs)
 
-def outputStats (ts, mt, st, pl, pi, pb, pm):
-    global stats_lock
-    stats_lock.acquire()
+def inputThread(file_list, stats_queue, diffs_queue):
+    print_log("call inputThread")
     try:
-        global stats_print
-        k = str(ts)+'_'+mt+'_'+st
-        if k not in stats_print:
-            stats_print.append(k)
-            output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
-            for p in sorted(pl.keys()):
-                output += str(pl[p])+';'
-            output += str(pi)+';'
-            output += str(pb)+';'
-            output += str(pm)
+        assert len(file_list) > 0
+        for i in range(len(file_list)):
+            fin = file_list[i]
+            ts, mt, st = parseFilename(fin)
+            pt = loadPtree(fin)
+            data = [ts,mt,st,pt]
+            stats_queue.put(data)
+            diffs_queue.put(data)
+    except Exception, e:
+        print_error("inputThread: some error: %s" % e) 
+    finally:
+        # send done to other threads to stop them
+        stats_queue.put('DONE')
+        diffs_queue.put('DONE')
+
+def statsThread(queue, fout):
+    print_log("start statsThread")
+    errors = 0
+    calls = 0
+    while True:
+        data = queue.get()
+        if (data == 'DONE'):
+            break
+        try:
+            ts = data[0]
+            mt = data[1]
+            st = data[2]
+            pt = data[3]
+            calls += 1
+            print_info("statsThread, call %d" % calls)
+            pl, pi, pb, pm = getStats(pt)
+            outputStats(fout, ts, mt, st, pl, pi, pb, pm)
+        except:
+            print_error("statsThread: cannot parse data in queue!")
+            errors += 1
+        finally:
+            if errors > 10:
+                print_warn("statsThread: too many errors, stopping now!")
+                break
+
+def diffsThread(queue, fout):
+    print_log("start diffsThread")
+    errors = 0
+    calls = 0
+    data0 = queue.get()
+    while True:
+        data1 = queue.get()
+        if (data0 == 'DONE') or (data1 == 'DONE'):
+            break
+        try:
+            ts0 = data0[0]
+            ts1 = data1[0]
+            mt0 = data0[1]
+            mt1 = data1[1]
+            st0 = data0[2]
+            st1 = data1[2]
+            pt0 = data0[3]
+            pt1 = data1[3]
+            if (mt0==mt1) and (st0==st1):
+                calls += 1
+                print_info("diffThread, call %d" % calls)
+                diffs = getDiffs(pt0, pt1)
+                outputDiffs(fout, ts0, ts1, mt0, st0, diffs)
+        except:
+            print_error("diffsThread: cannot parse data in queue!")
+            errors += 1
+        finally:
+            if errors > 10:
+                print_warn("diffsThread: too many errors, stopping now!")
+                break
+        data0 = data1
+
+def outputStats (fout, ts, mt, st, pl, pi, pb, pm):
+    global stats_print
+    k = str(ts)+'_'+mt+'_'+st
+    if k not in stats_print:
+        stats_print.append(k)
+        output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
+        for p in sorted(pl.keys()):
+            output += str(pl[p])+';'
+        output += str(pi)+';'
+        output += str(pb)+';'
+        output += str(pm)
+        if fout:
+            fn = mt+'.'+st+'.stats.csv'
+            with open(fn, "a+") as f:
+                f.write(output+'\n') 
+        else:
             print(output)
             sys.stdout.flush()
-    finally:
-        stats_lock.release()
 
-def outputDiffs(ts0,ts1,mt,st,diffs):
+def outputDiffs(fout, ts0, ts1, mt, st, diffs):
     output = 'DIFFS;'+str(ts0)+';'+str(ts1)+';'+mt+';'+st+';'
     output += ';'.join(str(x) for x in diffs)
-    print(output)
-    sys.stdout.flush()
+    if fout:
+        fn = mt+'.'+st+'.diffs.csv'
+        with open(fn, "a+") as f:
+                f.write(output+'\n') 
+    else:
+        print(output)   
+        sys.stdout.flush()
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--logging',      help='Ouptut logging.', action='store_true')
     parser.add_argument('-w', '--warning',      help='Output warnings.', action='store_true')
     parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
-    parser.add_argument('-t', '--threads',      help='Use N threads, for parallel and faster processing.', type=int, default=1)
+    parser.add_argument('-t', '--threads',      help='Use threads for parallel and faster processing.', action='store_true', default=False)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-s', '--single',       help='Convert a single file, output to <filename>.gz in current directory.')
-    group.add_argument('-b', '--bulk',         help='Convert a bunch of files, see also input/outputdir.')
-    parser.add_argument('-r', '--recursive',   help='Search directories recursivly if in bulk mode.', action='store_true')
+    group.add_argument('-s', '--single',        help='Process a single file, results are printed to STDOUT.')
+    group.add_argument('-b', '--bulk',          help='Process a bunch of files in given directory (optional recursive).s')
+    parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')
+    parser.add_argument('-f', '--file',         help='Write results to files stats.csv and diffs.csv in working directory.', action='store_true', default=False)
     args = vars(parser.parse_args())
     
     global verbose
@@ -268,18 +341,9 @@ def main():
     global logging
     logging   = args['logging']
 
+    writedata = args['file']
     recursive = args['recursive']
-    numthreads   = args['threads']
-
-    max_threads = cpu_count() - 1 if (cpu_count() > 2) else 1
-
-    if numthreads < 1:
-        numthreads = 1
-    elif numthreads > max_threads:
-        print_warn("Be reasonable! THREADS to high, set to %d." % (max_threads))
-        numthreads = max_threads
-    global ptree_limit
-    ptree_limit = numthreads+2
+    threads   = args['threads']
 
     bulk      = args['bulk']
     single    = args['single']
@@ -305,19 +369,27 @@ def main():
 
         all_files.sort()
         print_log("matching files: %d" % (len(all_files)))
-        work_load = []
-        print_log("tasks in workload: %d" % (len(work_load)))
-        for i in range(len(all_files)-1):
-            work_load.append([all_files[i],all_files[i+1]])
 
-        if numthreads > 1:
-            pool = Pool(processes=numthreads)
-            pool.map(worker, work_load, chunksize=1)
-            pool.close()
-            pool.join()
+        if threads:
+            stats_queue = Queue(queue_limit)
+            diffs_queue = Queue(queue_limit)
+            stats_p = Process(target=statsThread, args=((stats_queue),writedata,))
+            diffs_p = Process(target=diffsThread, args=((diffs_queue),writedata,))
+
+            stats_p.daemon = True
+            diffs_p.daemon = True
+            stats_p.start()
+            diffs_p.start()
+            inputThread(all_files, stats_queue, diffs_queue)
+            stats_p.join()
+            diffs_p.join()
+
         else:
+            work_load = []
+            for i in range(len(all_files)-1):
+                work_load.append([all_files[i],all_files[i+1]])
             for w in work_load:
-                worker(w)
+                singleWorker(writedata, w)
 
     elif single:
         print_log("mode: single")
@@ -325,7 +397,7 @@ def main():
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = getPtree(single)
             pl0, pi0, pb0, pm0 = getStats(pt0)
-            outputStats(ts0,mt0,st0,pl0,pi0,pb0,pm0)
+            outputStats(writedata, ts0,mt0,st0,pl0,pi0,pb0,pm0)
         else:
             print_error("File not found (%s)!" % (single))
     else:
