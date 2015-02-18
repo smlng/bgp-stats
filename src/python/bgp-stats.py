@@ -262,9 +262,11 @@ def diffsThread(queue, fout):
     errors = 0
     calls = 0
     data0 = queue.get()
+    if data0 == 'DONE':
+        return
     while True:
         data1 = queue.get()
-        if (data0 == 'DONE') or (data1 == 'DONE'):
+        if data1 == 'DONE':
             break
         try:
             ts0 = data0[0]
