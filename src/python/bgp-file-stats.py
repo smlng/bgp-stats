@@ -151,7 +151,7 @@ def singleWorker(wd, fin):
     print_log("call singleWorker(fin: %s)" % (fin))
 
     ts0, mt0, st0 = parseFilename(fin)
-    pt0 = getPtree(fin)
+    pt0 = loadPtree(fin)
     pl0, pi0, pb0, pm0 = getStats(pt0)
     outputStats(wd,ts0,mt0,st0,pl0,pi0,pb0,pm0)
 
@@ -161,7 +161,7 @@ def statsThread(inq, outq):
     for fin in iter(inq, 'DONE'):
         try:
             ts0, mt0, st0 = parseFilename(fin)
-            pt0 = getPtree(fin)
+            pt0 = loadPtree(fin)
             pl0, pi0, pb0, pm0 = getStats(pt0)
             outq.put([ts0,mt0,st0,pl0,pi0,pb0,pm0])
         except Exception, e:
@@ -174,7 +174,7 @@ def outputThread(outq, outf):
         if (odata == 'DONE'):
             break
         try:
-            outputStats(outf,odata[0],odata[1],odata[2],odata[3],odata[4],odata[5],odata[6]))
+            outputStats(outf,odata[0],odata[1],odata[2],odata[3],odata[4],odata[5],odata[6])
         except Exception, e:
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
@@ -279,7 +279,7 @@ def main():
         print_log("mode: single")
         if os.path.isfile(single):
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
-            pt0 = getPtree(single)
+            pt0 = loadPtree(single)
             pl0, pi0, pb0, pm0 = getStats(pt0)
             outputStats(writedata, ts0,mt0,st0,pl0,pi0,pb0,pm0)
         else:
