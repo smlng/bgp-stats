@@ -10,10 +10,9 @@ import re
 import sys
 
 from bz2 import BZ2File
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from multiprocessing import Process, Queue, cpu_count
-from netaddr import IPSet, IPNetwork
+from netaddr import IPSet
 
 # own imports
 import mrtx
