@@ -157,7 +157,7 @@ def singleWorker(wd, fin):
 def statsThread(inq, outq):    
     print_log("start statsThread")
 
-    for fin in iter(inq, 'DONE'):
+    for fin in iter(inq.get, 'DONE'):
         try:
             ts0, mt0, st0 = parseFilename(fin)
             pt0 = loadPtree(fin)
