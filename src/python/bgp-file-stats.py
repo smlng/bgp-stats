@@ -180,22 +180,18 @@ def outputThread(outq, outf):
     return True
 
 def outputStats (fout, ts, mt, st, pl, pi, pb, pm):
-    global stats_print
-    k = str(ts)+'_'+mt+'_'+st
-    if k not in stats_print:
-        stats_print.append(k)
-        output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
-        for p in sorted(pl.keys()):
-            output += str(pl[p])+';'
-        output += str(pi)+';'
-        output += str(pb)+';'
-        output += str(pm)
-        if fout:
-            with open(fout, "a+") as f:
-                f.write(output+'\n')
-        else:
-            print(output)
-            sys.stdout.flush()
+    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
+    for p in sorted(pl.keys()):
+        output += str(pl[p])+';'
+    output += str(pi)+';'
+    output += str(pb)+';'
+    output += str(pm)
+    if fout:
+        with open(fout, "a+") as f:
+            f.write(output+'\n')
+    else:
+        print(output)
+        sys.stdout.flush()
 
 def main():
     parser = argparse.ArgumentParser()
