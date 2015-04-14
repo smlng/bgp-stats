@@ -198,6 +198,7 @@ def main():
     parser.add_argument('-w', '--warning',      help='Output warnings.', action='store_true')
     parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
     parser.add_argument('-t', '--threads',      help='Use threads for parallel and faster processing.', action='store_true', default=False)
+    parser.add_argument('-n', '--numthreads',   help='Set number of threads.', type=int, default=None)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-s', '--single',        help='Process a single file, results are printed to STDOUT.')
     group.add_argument('-b', '--bulk',          help='Process a bunch of files in given directory (optional recursive).')
@@ -217,6 +218,9 @@ def main():
     writedata = args['file']
     recursive = args['recursive']
     threads   = args['threads']
+    workers   = args['numthreads']
+    if not workers:
+        workers = cpu_count() / 2
 
     bulk      = args['bulk']
     single    = args['single']
@@ -244,7 +248,6 @@ def main():
         print_log("matching files: %d" % (len(all_files)))
 
         if threads:
-            workers = cpu_count() / 2
             input_queue = Queue()
             output_queue = Queue()
             processes = []
