@@ -179,7 +179,7 @@ def outputThread(outq, outf):
     return True
 
 def outputStats (fout, ts, mt, st, pl, pi, pb, pm):
-    output = 'STATS;'+str(ts)+';'+mt+';'+st+';'
+    output = str(ts)+';'+mt+';'+st+';'
     for p in sorted(pl.keys()):
         output += str(pl[p])+';'
     output += str(pi)+';'
