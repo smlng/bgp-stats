@@ -120,9 +120,8 @@ def parseFilename(fin):
 
 def getDiffs (pt0, pt1):
     print_log("call getDiffs")
-    num_ips_changed = 0
-    num_ips_agg = 0
-    num_ips_deagg = 0
+    ips_agg = IPSet()
+    ips_deagg = IPSet()
     pt0IPs = IPSet(pt0.prefixes()) - reserved_ipv4
     pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
     num_ips_new = len(pt1IPs - pt0IPs)
@@ -130,15 +129,16 @@ def getDiffs (pt0, pt1):
     for pn0 in pt0:
         ipn0 = IPNetwork(pn0.prefix)
         if ipn0 not in reserved_ipv4:
-            pn1 = pt1.search_best(str(ipn0[abs(len(ipn0)/2)]))
-            if pn1:
-                ipn1 = IPNetwork(pn1.prefix)
-                if ipn0 != ipn1:
-                    if ipn0.prefixlen > ipn1.prefixlen:
-                        num_ips_agg += 2 ** (32 - ipn0.prefixlen)
-                    elif ipn0.prefixlen < ipn1.prefixlen:
-                        num_ips_deagg += 2 ** (32 - ipn0.prefixlen)
-                    num_ips_changed += 2 ** (32 - ipn0.prefixlen)
+            pn1 = pt1.search_best(pn0.network)
+            if pn1 and (pn0 != pn1):
+                diff = pn0.prefixlen - pn1.prefixlen
+                if diff > 0: # aggregate
+                    ips_agg = ips_agg | IPSet(pn0.prefix)
+                if diff < 0: # deaggregate
+                    ips_deagg = ips_deagg | IPSet(pn0.prefix)
+    num_ips_agg = len(ips_agg)
+    num_ips_deagg = len(ips_deagg)
+    num_ips_changed = num_ips_agg + num_ips_deagg
     ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_ips_agg, num_ips_deagg]
     return ret
 
