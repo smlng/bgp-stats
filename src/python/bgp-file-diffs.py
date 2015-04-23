@@ -12,7 +12,7 @@ import sys
 from bz2 import BZ2File
 from datetime import datetime, timedelta
 from multiprocessing import Process, Queue, cpu_count
-from netaddr import IPSet
+from netaddr import IPSet, IPNetwork
 
 # own imports
 import mrtx
