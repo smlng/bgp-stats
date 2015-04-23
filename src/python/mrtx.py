@@ -74,7 +74,7 @@ Both version 1 & 2 TABLE_DUMPS are supported, as well as 32bit ASNs. However, th
         # important change from pyasn_converter 1.2"
         #   in 1.2, we ignored origins of as_paths ending in as_set (with one AS - quite common - or multiple )
         #   as well as origins of as_paths with more than three segments (very few)
-        #   this was a silly bug, andthese prefixes (129 in a total of 513000 prefixes for 2014-05-23) weren't saved
+        #   this was a silly bug, and these prefixes (129 in a total of 513000 prefixes for 2014-05-23) weren't saved
         if mrt.prefix not in results:
             results[mrt.prefix] = list()
 
@@ -212,7 +212,8 @@ class MrtRecord:
             assert mrt.sub_type in (MrtRecord.T2_PEER_INDEX_TABLE, MrtRecord.T2_RIB_IPV4_UNICAST, MrtRecord.T2_RIB_IPV6_UNICAST)  # only allow these
             # among them, T2_PEER_INDEX_TABLE provides BGP ID of the collector, and list of peers; we don't use it
             if mrt.sub_type == MrtRecord.T2_RIB_IPV4_UNICAST:
-                mrt.table = MrtTableDump2(buf, mrt.sub_type)
+                # buf holds BGP message of mrt.data_len bytes
+                mrt.table = MrtTableDump2(buf, mrt.sub_type) 
         else:
             raise Exception("MrtTableHeader received an unknown MRT table dump TYPE <%d>!" % mrt.type)
         return mrt
