@@ -118,6 +118,30 @@ def parseFilename(fin):
     ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
+def getDiffs (pt0, pt1):
+    print_log("call getDiffs")
+    num_ips_changed = 0
+    num_ips_agg = 0
+    num_ips_deagg = 0
+    pt0IPs = IPSet(pt0.prefixes()) - reserved_ipv4
+    pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
+    num_ips_new = len(pt1IPs - pt0IPs)
+    num_ips_del = len(pt0IPs - pt1IPs)
+    for pn0 in pt0:
+        ipn0 = IPNetwork(pn0.prefix)
+        if ipn0 not in reserved_ipv4:
+            pn1 = pt1.search_best(str(ipn0[abs(len(ipn0)/2)]))
+            if pn1:
+                ipn1 = IPNetwork(pn1.prefix)
+                if ipn0 != ipn1:
+                    if ipn0.prefixlen > ipn1.prefixlen:
+                        num_ips_agg += 2 ** (32 - ipn0.prefixlen)
+                    elif ipn0.prefixlen < ipn1.prefixlen:
+                        num_ips_deagg += 2 ** (32 - ipn0.prefixlen)
+                    num_ips_changed += 2 ** (32 - ipn0.prefixlen)
+    ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del, num_ips_changed, num_ips_agg, num_ips_deagg]
+    return ret
+
 def singleWorker(wd, fin):
     print_log("call singleWorker(fin0: %s, fin1: %s)" % (fin[0],fin[1]))
 
@@ -175,7 +199,7 @@ def main():
     parser.add_argument('-n', '--numthreads',   help='Set number of threads.', type=int, default=None)
     parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')
     parser.add_argument('-f', '--file',         help='Write results to file.', default=None)
-    parser.add_argument('path',                 help='Path to data.', required=True)
+    parser.add_argument('path',                 help='Path to data.')
 
     args = vars(parser.parse_args())
     
