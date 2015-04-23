@@ -130,7 +130,7 @@ def getDiffs (pt0, pt1):
         ipn0 = IPNetwork(pn0.prefix)
         if ipn0 not in reserved_ipv4:
             pn1 = pt1.search_best(pn0.network)
-            if pn1 and (pn0 != pn1):
+            if (pn1 != None) and (pn0 != pn1):
                 diff = pn0.prefixlen - pn1.prefixlen
                 if diff > 0: # aggregate
                     try:
