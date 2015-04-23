@@ -133,9 +133,16 @@ def getDiffs (pt0, pt1):
             if pn1 and (pn0 != pn1):
                 diff = pn0.prefixlen - pn1.prefixlen
                 if diff > 0: # aggregate
-                    ips_agg = ips_agg | IPSet(pn0.prefix)
+                    try:
+                        ips_agg = ips_agg | IPSet(pn0.prefix)
+                    except:
+                        print_error("Failed to add prefix (%s) to ips_agg!" % (pn0.prefix))
                 if diff < 0: # deaggregate
-                    ips_deagg = ips_deagg | IPSet(pn0.prefix)
+                    try:
+                        ips_deagg = ips_deagg | IPSet(pn0.prefix)
+                    except:
+                        print_error("Failed to add prefix (%s) to ips_deagg!" % (pn0.prefix))
+            
     num_ips_agg = len(ips_agg)
     num_ips_deagg = len(ips_deagg)
     num_ips_changed = num_ips_agg + num_ips_deagg
@@ -143,7 +150,7 @@ def getDiffs (pt0, pt1):
     return ret
 
 def singleWorker(wd, fin):
-    print_log("call singleWorker(fin0: %s, fin1: %s)" % (fin[0],fin[1]))
+    print_log("call singleWorker(\n\t fin0: %s,\n\t fin1: %s)" % (fin[0],fin[1]))
 
     ts0, mt0, st0 = parseFilename(fin[0])
     ts1, mt1, st1 = parseFilename(fin[1])
