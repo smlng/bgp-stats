@@ -135,12 +135,12 @@ def getDiffs (pt0, pt1):
                 diff = pn0.prefixlen - pn1.prefixlen
                 if diff > 0: # aggregate
                     try:
-                        ips_agg = ips_agg | IPSet(pn0.prefix)
+                        ips_agg = ips_agg | IPSet([pn0.prefix])
                     except:
                         print_error("Failed to add prefix (%s) to ips_agg!" % (pn0.prefix))
                 if diff < 0: # deaggregate
                     try:
-                        ips_deagg = ips_deagg | IPSet(pn0.prefix)
+                        ips_deagg = ips_deagg | IPSet([pn0.prefix])
                     except:
                         print_error("Failed to add prefix (%s) to ips_deagg!" % (pn0.prefix))
             

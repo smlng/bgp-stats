@@ -75,32 +75,53 @@ def loadPtree(fin):
     ptree = radix.Radix()
     for prefix, origins in data.items():
         pnode = ptree.add(prefix)
-        pnode.data['asn'] = list()
-        pnode.data['moas'] = 0
+        pnode.data['asn'] = set()
         for o in origins:
-            pnode.data['asn'].append(o)
-            pnode.data['moas'] += 1
+            pnode.data['asn'].add(o)
+        pnode.data['moas'] = len(pnode.data['asn'])
     return ptree
 
 def getStats (ptree):
     print_log("call getStats")
     pfxlen = dict()
-    pfxmoas = 0
+    asn = dict()
+    num_pfx_moas = 0
+    # eval prefix tree
     for p in ptree:
         pl = int(p.prefixlen)
+        for a in p.data['asn']:
+            if a not in asn:
+                asn[a] = list()
+            asn[a].append(p)
         if p.data['moas'] > 1:
-            pfxmoas += 1
+            num_pfx_moas += 1
         if pl not in pfxlen:
             pfxlen[pl] = list()
         pfxlen[pl].append(p.prefix)
-    pl_dict = dict()
-    # init with all 0
-    for i in range(32):
-        pl_dict[i+1] = 0
 
+    # asn results
+    num_asn = len(asn.keys())
+    num_asn_pfx = list()
+    num_asn_ips = list()
+    for a in asn:
+        num_asn_pfx.append(len(asn[a]))
+        num_asn_ips.append(len(IPSet(asn[a])))
+    # min, max, avg/mean, median
+    min_asn_pfx = min(num_asn_pfx)
+    max_asn_pfx = max(num_asn_pfx)
+    avg_asn_pfx = sum(num_asn_pfx)/len(num_asn_pfx)
+    med_asn_pfx = sorted(num_asn_pfx)[int(round(len(num_asn_pfx)/2))]
+    min_asn_ips = min(num_asn_ips)
+    max_asn_ips = max(num_asn_ips)
+    avg_asn_ips = sum(num_asn_ips)/len(num_asn_ips)
+    med_asn_ips = sorted(num_asn_ips)[int(round(len(num_asn_ips)/2))]
+    
+    # prefix and ip results
+    pl_dict = dict()
+    for i in range(32): # init with all 0
+        pl_dict[i+1] = 0
     for pl in pfxlen:
         pl_dict[pl] = len(pfxlen[pl])
-
     pkeys = sorted(pfxlen.keys(),reverse=False)
     prefixIPs = IPSet()
     for pk in pkeys:
@@ -108,7 +129,14 @@ def getStats (ptree):
         prefixIPs = prefixIPs | IPSet(pfxlen[pk])
     num_bogus_ips = len(prefixIPs & reserved_ipv4)
     num_pfx_ips = len(prefixIPs)
-    return pl_dict, num_pfx_ips, num_bogus_ips, pfxmoas
+
+    ret = list()
+    for i in range(32):
+        ret.append(pl_dict[i+1])
+    ret.extend([num_pfx_ips,num_bogus_ips,num_pfx_moas, num_asn])
+    ret.extend([min_asn_pfx,max_asn_pfx,avg_asn_pfx,med_asn_pfx])
+    ret.extend([min_asn_ips,max_asn_ips,avg_asn_ips,med_asn_ips])
+    return ret
 
 def parseFilename(fin):
     print_log("call parseFilename (%s)" % (fin))
@@ -151,8 +179,8 @@ def singleWorker(wd, fin):
 
     ts0, mt0, st0 = parseFilename(fin)
     pt0 = loadPtree(fin)
-    pl0, pi0, pb0, pm0 = getStats(pt0)
-    outputStats(wd,ts0,mt0,st0,pl0,pi0,pb0,pm0)
+    stats = getStats(pt0)
+    outputStats(wd,[ts0,mt0,st0].extend(stats))
 
 def statsThread(inq, outq):    
     print_log("start statsThread")
@@ -161,8 +189,8 @@ def statsThread(inq, outq):
         try:
             ts0, mt0, st0 = parseFilename(fin)
             pt0 = loadPtree(fin)
-            pl0, pi0, pb0, pm0 = getStats(pt0)
-            outq.put([ts0,mt0,st0,pl0,pi0,pb0,pm0])
+            stats = getStats(pt0)
+            outq.put([ts0,mt0,st0].extend(stats))
         except Exception, e:
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
@@ -173,18 +201,13 @@ def outputThread(outq, outf):
         if (odata == 'DONE'):
             break
         try:
-            outputStats(outf,odata[0],odata[1],odata[2],odata[3],odata[4],odata[5],odata[6])
+            outputStats(outf,odata)
         except Exception, e:
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
 
-def outputStats (fout, ts, mt, st, pl, pi, pb, pm):
-    output = str(ts)+';'+mt+';'+st+';'
-    for p in sorted(pl.keys()):
-        output += str(pl[p])+';'
-    output += str(pi)+';'
-    output += str(pb)+';'
-    output += str(pm)
+def outputStats (fout, dout):
+    output = ';'.join(str(x) for x in dout)
     if fout:
         with open(fout, "a+") as f:
             f.write(output+'\n')
