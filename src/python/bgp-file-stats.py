@@ -93,7 +93,7 @@ def getStats (ptree):
         for a in p.data['asn']:
             if a not in asn:
                 asn[a] = list()
-            asn[a].append(p)
+            asn[a].append(p.prefix)
         if p.data['moas'] > 1:
             num_pfx_moas += 1
         if pl not in pfxlen:
@@ -302,8 +302,13 @@ def main():
         if os.path.isfile(single):
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = loadPtree(single)
-            stats= getStats(pt0)
-            outputStats(writedata, [ts0,mt0,st0].extend(stats))
+            stats = getStats(pt0)
+            dout = list()
+            dout.append(ts0)
+            dout.append(mt0)
+            dout.append(st0)
+            dout.extend(stats)
+            outputStats(writedata, dout)
         else:
             print_error("File not found (%s)!" % (single))
     else:
