@@ -189,7 +189,9 @@ def singleWorker(wd, fin):
     ts0, mt0, st0 = parseFilename(fin)
     pt0 = loadPtree(fin)
     stats = getStats(pt0)
-    outputStats(wd,[ts0,mt0,st0].extend(stats))
+    dout = [ts0,mt0,st0]
+    dout.extend(stats)
+    outputStats(wd,dout)
 
 def statsThread(inq, outq):    
     print_log("start statsThread")
@@ -199,7 +201,9 @@ def statsThread(inq, outq):
             ts0, mt0, st0 = parseFilename(fin)
             pt0 = loadPtree(fin)
             stats = getStats(pt0)
-            outq.put([ts0,mt0,st0].extend(stats))
+            dout = [ts0,mt0,st0]
+            dout.extend(stats)
+            outq.put(dout)
         except Exception, e:
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
