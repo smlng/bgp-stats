@@ -215,7 +215,8 @@ def outputThread(outq, outf):
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
 
-output_header = ["#","timestamp","maptype","subtype"].extend(stats_header)
+output_header = ["# timestamp","maptype","subtype"]
+output_header.extend(stats_header)
 
 def outputStats (fout, dout):
     output = ';'.join(str(x) for x in dout)
@@ -314,7 +315,8 @@ def main():
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = loadPtree(single)
             stats = getStats(pt0)
-            dout = [ts0,mt0,st0].extend(stats)
+            dout = [ts0,mt0,st0]
+            dout.extend(stats)
             outputStats(writedata, output_header)
             outputStats(writedata, dout)
         else:
