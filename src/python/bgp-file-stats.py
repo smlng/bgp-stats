@@ -139,6 +139,14 @@ def getStats (ptree):
     ret.extend([min_asn_ips,max_asn_ips,avg_asn_ips,med_asn_ips])
     return ret
 
+stats_header = ["pl01","pl02","pl03","pl04","pl05","pl06","pl07","pl08",
+                "pl09","pl10","pl11","pl12","pl13","pl14","pl15","pl16",
+                "pl17","pl18","pl19","pl20","pl21","pl22","pl23","pl24",
+                "pl25","pl26","pl27","pl28","pl29","pl30","pl31","pl32",
+                "num_pfx_ips","num_bog_ips","num_pfx_moa","num_asn",
+                "min_asn_pfx","max_asn_pfx","avg_asn_pfx","med_asn_pfx",
+                "min_asn_ips","max_asn_ips","avg_asn_ips","med_asn_ips"]
+
 def parseFilename(fin):
     print_log("call parseFilename (%s)" % (fin))
 
@@ -207,6 +215,8 @@ def outputThread(outq, outf):
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
 
+output_header = ["#","timestamp","maptype","subtype"].extend(stats_header)
+
 def outputStats (fout, dout):
     output = ';'.join(str(x) for x in dout)
     if fout:
@@ -274,6 +284,7 @@ def main():
         if threads:
             input_queue = Queue()
             output_queue = Queue()
+            output_queue.put(output_header)
             processes = []
             # fill input queue
             for f in all_files:
@@ -303,11 +314,8 @@ def main():
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = loadPtree(single)
             stats = getStats(pt0)
-            dout = list()
-            dout.append(ts0)
-            dout.append(mt0)
-            dout.append(st0)
-            dout.extend(stats)
+            dout = [ts0,mt0,st0].extend(stats)
+            outputStats(writedata, output_header)
             outputStats(writedata, dout)
         else:
             print_error("File not found (%s)!" % (single))
