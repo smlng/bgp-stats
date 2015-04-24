@@ -76,9 +76,9 @@ def loadPtree(fin):
     for prefix, origins in data.items():
         pnode = ptree.add(prefix)
         pnode.data['asn'] = list()
-        for o in origins:
+        for o in list(origins):
             if o not in pnode.data['asn']:
-                pnode.data['asn'].append(o)
+                pnode.data['asn'].append(str(o))
         pnode.data['moas'] = len(pnode.data['asn'])
     return ptree
 
@@ -302,8 +302,8 @@ def main():
         if os.path.isfile(single):
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
             pt0 = loadPtree(single)
-            pl0, pi0, pb0, pm0 = getStats(pt0)
-            outputStats(writedata, ts0,mt0,st0,pl0,pi0,pb0,pm0)
+            stats= getStats(pt0)
+            outputStats(writedata, [ts0,mt0,st0].extend(stats))
         else:
             print_error("File not found (%s)!" % (single))
     else:
