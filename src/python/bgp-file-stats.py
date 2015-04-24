@@ -75,9 +75,10 @@ def loadPtree(fin):
     ptree = radix.Radix()
     for prefix, origins in data.items():
         pnode = ptree.add(prefix)
-        pnode.data['asn'] = set()
+        pnode.data['asn'] = list()
         for o in origins:
-            pnode.data['asn'].add(o)
+            if o not in pnode.data['asn']:
+                pnode.data['asn'].append(o)
         pnode.data['moas'] = len(pnode.data['asn'])
     return ptree
 
