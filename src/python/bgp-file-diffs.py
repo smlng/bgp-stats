@@ -118,6 +118,7 @@ def parseFilename(fin):
     ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
+#add num_pfx_new, num_pfx_del, num_asn_new, num_asn_del
 def getDiffs (pt0, pt1):
     print_log("call getDiffs")
     ips_agg = IPSet()
@@ -126,6 +127,8 @@ def getDiffs (pt0, pt1):
     pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
     num_ips_new = len(pt1IPs - pt0IPs)
     num_ips_del = len(pt0IPs - pt1IPs)
+    num_pfx_new = len(set(pt1.prefixes()) - set(pt0.prefixes()))
+    num_pfx_del = len(set(pt0.prefixes()) - set(pt1.prefixes()))
     for pn0 in pt0:
         ipn0 = IPNetwork(pn0.prefix)
         if ipn0 not in reserved_ipv4:

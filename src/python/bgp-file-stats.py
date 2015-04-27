@@ -40,6 +40,8 @@ reserved_ipv4 = IPSet (['0.0.0.0/8',                                        # ho
                         '255.255.255.255/32'                                # limited broadcast
                     ]) 
 
+existing_data = list()
+
 '''
 OUTPUT FORMAT:
 
@@ -82,6 +84,7 @@ def loadPtree(fin):
         pnode.data['moas'] = len(pnode.data['asn'])
     return ptree
 
+# add num_pfx to stats
 def getStats (ptree):
     print_log("call getStats")
     pfxlen = dict()
@@ -130,11 +133,12 @@ def getStats (ptree):
         prefixIPs = prefixIPs | IPSet(pfxlen[pk])
     num_bogus_ips = len(prefixIPs & reserved_ipv4)
     num_pfx_ips = len(prefixIPs)
+    num_pfx = len(ptree.prefixes())
 
     ret = list()
     for i in range(32):
         ret.append(pl_dict[i+1])
-    ret.extend([num_pfx_ips,num_bogus_ips,num_pfx_moas, num_asn])
+    ret.extend([num_pfx,num_pfx_ips,num_bogus_ips,num_pfx_moas,num_asn])
     ret.extend([min_asn_pfx,max_asn_pfx,avg_asn_pfx,med_asn_pfx])
     ret.extend([min_asn_ips,max_asn_ips,avg_asn_ips,med_asn_ips])
     return ret
@@ -143,7 +147,7 @@ stats_header = ["pl01","pl02","pl03","pl04","pl05","pl06","pl07","pl08",
                 "pl09","pl10","pl11","pl12","pl13","pl14","pl15","pl16",
                 "pl17","pl18","pl19","pl20","pl21","pl22","pl23","pl24",
                 "pl25","pl26","pl27","pl28","pl29","pl30","pl31","pl32",
-                "num_pfx_ips","num_bog_ips","num_pfx_moa","num_asn",
+                "num_pfx","num_pfx_ips","num_bog_ips","num_pfx_moa","num_asn",
                 "min_asn_pfx","max_asn_pfx","avg_asn_pfx","med_asn_pfx",
                 "min_asn_ips","max_asn_ips","avg_asn_ips","med_asn_ips"]
 
@@ -187,11 +191,14 @@ def singleWorker(wd, fin):
     print_log("call singleWorker(fin: %s)" % (fin))
 
     ts0, mt0, st0 = parseFilename(fin)
-    pt0 = loadPtree(fin)
-    stats = getStats(pt0)
-    dout = [ts0,mt0,st0]
-    dout.extend(stats)
-    outputStats(wd,dout)
+    if ts0 not in existing_data:
+        pt0 = loadPtree(fin)
+        stats = getStats(pt0)
+        dout = [ts0,mt0,st0]
+        dout.extend(stats)
+        outputStats(wd,dout)
+    else:
+        print_info("data set exists, skipping ...")
 
 def statsThread(inq, outq):    
     print_log("start statsThread")
@@ -199,11 +206,14 @@ def statsThread(inq, outq):
     for fin in iter(inq.get, 'DONE'):
         try:
             ts0, mt0, st0 = parseFilename(fin)
-            pt0 = loadPtree(fin)
-            stats = getStats(pt0)
-            dout = [ts0,mt0,st0]
-            dout.extend(stats)
-            outq.put(dout)
+            if ts0 not in existing_data:
+                pt0 = loadPtree(fin)
+                stats = getStats(pt0)
+                dout = [ts0,mt0,st0]
+                dout.extend(stats)
+                outq.put(dout)
+            else:
+                print_info("data set exists, skipping ...")
         except Exception, e:
             print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
     return True
@@ -255,6 +265,20 @@ def main():
     logging   = args['logging']
 
     writedata = args['file']
+    if writedata: # read already written data
+        with open(writedata, "r") as f:
+            global existing_data
+            for line in f:
+                if line.startswith('#'):
+                    continue
+                ts = line.split(';')[0].strip()
+                try:
+                    existing_data.append(int(ts))
+                except:
+                    print_error("Failure converting timestamp to integer!")
+        print_info(existing_data[0])
+        print_log("read %d data sets." % (len(existing_data)))
+
     recursive = args['recursive']
     threads   = args['threads']
     workers   = args['numthreads']
@@ -289,7 +313,8 @@ def main():
         if threads:
             input_queue = Queue()
             output_queue = Queue()
-            output_queue.put(output_header)
+            if len(existing_data) == 0: # write header if no existing data
+                output_queue.put(output_header)
             processes = []
             # fill input queue
             for f in all_files:
@@ -317,12 +342,15 @@ def main():
         print_log("mode: single")
         if os.path.isfile(single):
             ts0, mt0, st0 = parseFilename(os.path.abspath(single))
-            pt0 = loadPtree(single)
-            stats = getStats(pt0)
-            dout = [ts0,mt0,st0]
-            dout.extend(stats)
-            outputStats(writedata, output_header)
-            outputStats(writedata, dout)
+            if ts0 not in existing_data:
+                pt0 = loadPtree(single)
+                stats = getStats(pt0)
+                dout = [ts0,mt0,st0]
+                dout.extend(stats)
+                outputStats(writedata, output_header)
+                outputStats(writedata, dout)
+            else:
+                print_info("data set exists, skipping ...")
         else:
             print_error("File not found (%s)!" % (single))
     else:
