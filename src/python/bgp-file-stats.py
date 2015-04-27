@@ -111,6 +111,11 @@ def getStats (ptree):
         num_asn_pfx.append(len(asn[a]))
         num_asn_ips.append(len(IPSet(asn[a])))
     # min, max, avg/mean, median
+    if len(num_asn_pfx) < 1:
+        num_asn_pfx.append(0)
+    if len(num_asn_ips) < 1:
+        num_asn_ips.append(0)
+        
     min_asn_pfx = min(num_asn_pfx)
     max_asn_pfx = max(num_asn_pfx)
     avg_asn_pfx = sum(num_asn_pfx)/len(num_asn_pfx)

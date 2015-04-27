@@ -1,5 +1,7 @@
 library(ggplot2)
 library(scales)
+library(plyr)
+library(rescale2)
 df.stats <- read.csv("../../raw/rvl.2005/stats.csv",sep=";",header=F,
                      col.names=c('type','ts','maptype','subtype','pl01','pl02','pl03','pl04','pl05','pl06','pl07','pl08',
                                  'pl09','pl10','pl11','pl12','pl13','pl14','pl15','pl16','pl17','pl18','pl19','pl20',
@@ -14,9 +16,10 @@ df.stats$date  <- as.POSIXct(df.stats$ts,  origin="1970-01-01", tz="GMT")
 df.diffs$date0 <- as.POSIXct(df.diffs$ts0, origin="1970-01-01", tz="GMT")
 df.diffs$date1 <- as.POSIXct(df.diffs$ts1, origin="1970-01-01", tz="GMT")
 
-ggplot(df.stats, aes(x=date,y=pfxips/1000000)) + 
+ggplot(df.stats, aes(x=date,y=pfxips)) + 
   geom_line() + 
   scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/12/31')),labels = date_format("%Y/%m")) +
+  scale_y_log10() +
   theme_bw() +
   theme(legend.position="none",
         strip.text.x = element_text(size = 9),
@@ -29,6 +32,7 @@ ggplot(df.stats, aes(x=date,y=pfxips/1000000)) +
 ggplot(df.stats, aes(x=date,y=pfxbogus)) + 
   geom_line() + 
   scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/12/31')),labels = date_format("%Y/%m")) +
+  scale_y_log10() +
   theme_bw() +
   theme(legend.position="none",
         strip.text.x = element_text(size = 9),
@@ -52,8 +56,8 @@ ggplot(df.stats, aes(x=date,y=pfxmoas)) +
 
 ggplot(df.diffs, aes(x=date0,y=newips)) + 
   geom_line() + 
-  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/10/31')),labels = date_format("%Y/%m")) +
-  scale_y_continuous(limits=c(0,10000000)) +
+  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/12/31')),labels = date_format("%Y/%m")) +
+  scale_y_log10() +
   theme_bw() +
   theme(legend.position="none",
         strip.text.x = element_text(size = 9),
@@ -63,11 +67,10 @@ ggplot(df.diffs, aes(x=date0,y=newips)) +
         text=element_text(size=18)) +
   labs(x="Date",y="#IPs new")
 
-
 ggplot(df.diffs, aes(x=date0,y=delips)) + 
   geom_line() + 
-  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/10/31')),labels = date_format("%Y/%m")) +
-  scale_y_continuous(limits=c(0,10000000)) +
+  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/12/31')),labels = date_format("%Y/%m")) +
+  scale_y_log10() +
   theme_bw() +
   theme(legend.position="none",
         strip.text.x = element_text(size = 9),
@@ -79,8 +82,9 @@ ggplot(df.diffs, aes(x=date0,y=delips)) +
 
 ggplot(df.diffs, aes(x=date0,y=modips)) + 
   geom_line() + 
-  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/10/31')),labels = date_format("%Y/%m")) +
+  scale_x_datetime(limits=c(as.POSIXct('2005/01/01'), as.POSIXct('2005/12/31')),labels = date_format("%Y/%m")) +
   #scale_y_continuous(limits=c(0,10000000)) +
+  scale_y_log10() +
   theme_bw() +
   theme(legend.position="none",
         strip.text.x = element_text(size = 9),
@@ -89,3 +93,8 @@ ggplot(df.diffs, aes(x=date0,y=modips)) +
         axis.text.x = element_text(angle = 50, hjust = 1),
         text=element_text(size=18)) +
   labs(x="Date",y="#IPs mod")
+
+df.stats.plen <- melt(df.stats[,5:36])
+ggplot(df.stats.plen, aes(x=value)) + geom_histogram(aes(y=..density..)) + facet_wrap(~variable)
+df.mean.plen <- ddply(df.stats.plen,.(variable), summarize, mean = mean(value))
+ggplot(df.mean.plen, aes(x=variable,y=mean)) + geom_point() + scale_y_log10()
