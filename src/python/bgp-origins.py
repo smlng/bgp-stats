@@ -114,11 +114,11 @@ def workerThread(inq,outq):
     return true
 
 def output(data, opts):
-    if opts['database']:
+    if opts['output'] == 'json':
+        outputJSON(data, opts['params'])
+    elif opts['output']:
         print_info ("using %s with params %s." % (opts['database'],opts['params']))
-    if opts['json']:
-        outputJSON(data, opts['json'])
-    if not opts['database'] and not opts['json']:
+    else:
         outputStdout(data)
 
 def outputJSON(data,fout):
@@ -129,6 +129,14 @@ def outputJSON(data,fout):
             f.write(json.dumps(data)+'\n')
     except:
         print_error("Failed to write data as JSON to file %s." % (fout))
+
+def outputPG(data,dbconnstr):
+    try:
+        con = psycopg2.connect(dbconnstr)
+    except:
+        print_error("outputPG: connecting to database")
+        sys.exit(1)
+    cur = con.cursor()
 
 def outputStdout(data):
     print (json.dumps(data, sort_keys=True, indent=2, separators=(',', ': ')))
@@ -152,15 +160,15 @@ def main():
     parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
     parser.add_argument('-t', '--threads',      help='Use threads for parallel and faster processing.', action='store_true', default=False)
     parser.add_argument('-n', '--numthreads',   help='Set number of threads.', type=int, default=None)
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument('-s', '--single',         help='Process a single file, results are printed to STDOUT.')
-    mode.add_argument('-b', '--bulk',           help='Process a bunch of files in given directory (optional recursive).')
+    imode = parser.add_mutually_exclusive_group(required=True)
+    imode.add_argument('-s', '--single',        help='Process a single file, results are printed to STDOUT.')
+    imode.add_argument('-b', '--bulk',          help='Process a bunch of files in given directory (optional recursive).')
     parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')   
-    parser.add_argument('-j', '--json',         help='Write data to file (not STDOUT), even if database is enabled.', default=False)
-    db = parser.add_mutually_exclusive_group(required=False)
-    db.add_argument('-c', '--couchdb',          help='Write data to CouchDB.', default=False)
-    db.add_argument('-m', '--mongodb',          help='Write data to MongoDB.', default=False)
-    db.add_argument('-p', '--postgres',         help='Write data to PostgresqlDB.', default=False)
+    omode = parser.add_mutually_exclusive_group(required=False)
+    omode.add_argument('-j', '--json',          help='Write data to JSON file.',    default=False)
+    omode.add_argument('-c', '--couchdb',       help='Write data to CouchDB.',      default=False)
+    omode.add_argument('-m', '--mongodb',       help='Write data to MongoDB.',      default=False)
+    omode.add_argument('-p', '--postgres',      help='Write data to PostgresqlDB.', default=False)
     args = vars(parser.parse_args())
     
     global verbose
@@ -182,17 +190,20 @@ def main():
     single    = args['single']
 
     oopts = dict()
-    oopts['json'] = args['json']
-    oopts['database'] = False
+    oopts['output'] = False
     if args['couchdb']:
-        oopts['database'] = 'couchdb'
+        oopts['output'] = 'couchdb'
         oopts['params'] = args['couchdb']
     if args['mongodb']:
-        oopts['database'] = 'mongodb'
+        oopts['output'] = 'mongodb'
         oopts['params'] = args['mongodb']
     if args['postgres']:
-        oopts['database'] = 'postgres'
+        import psycopg2
+        oopts['output'] = 'postgres'
         oopts['params'] = args['postgres']
+    if args['json']:
+        oopts['output'] = 'json'
+        oopts['params'] = args['json']
 
     start_time = datetime.now()
 
