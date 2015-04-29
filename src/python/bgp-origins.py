@@ -116,6 +116,8 @@ def workerThread(inq,outq):
 def output(data, opts):
     if opts['output'] == 'json':
         outputJSON(data, opts['params'])
+    elif opts['output'] == 'postgres':
+        outputPG(data, opts['params'])
     elif opts['output']:
         print_info ("using %s with params %s." % (opts['database'],opts['params']))
     else:
@@ -230,8 +232,6 @@ def main():
         if threads:
             input_queue = Queue()
             output_queue = Queue()
-            if len(existing_data) == 0: # write header if no existing data
-                output_queue.put(output_header)
             processes = []
             # fill input queue
             for f in all_files:
