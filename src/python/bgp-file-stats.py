@@ -270,7 +270,7 @@ def main():
     logging   = args['logging']
 
     writedata = args['file']
-    if writedata: # read already written data
+    if writedata and os.path.isfile(writedata): # read already written data
         with open(writedata, "r") as f:
             global existing_data
             for line in f:
