@@ -178,7 +178,7 @@ def outputPG(data,dbconnstr):
             if pid > 0:
                 for a in origins[p]:
                     try:
-                        con.execute(insert_origin, [did,pid,a])
+                        cur.execute(insert_origin, [did,pid,a])
                         con.commit()
                     except Exception, e:
                         print_error("INSERT INTO t_origins failed with: %s" % (e.message))
