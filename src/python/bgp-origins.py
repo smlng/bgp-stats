@@ -30,7 +30,7 @@ re_path_rr = re.compile('.*/(rrc\d\d)/\d\d\d\d.\d\d.*')
 existing_data = list()
 
 prefix_ids = dict()
-
+t_file = "/tmp/t_origins.copy"
 def print_log(*objs):
     if logging or verbose:
         print("[LOGS] .", *objs, file=sys.stdout)
@@ -56,7 +56,10 @@ def parseOrigins(fin):
         if prefix not in pfxo:
             pfxo[prefix] = list()
         for o in list(origins):
-            if str(o) not in pfxo[prefix]:
+            ostr = str(o)
+            if isinstance(o, set) or isinstance(o,list):
+                ostr = str(o[0])
+            if ostr not in pfxo[prefix]:
                 pfxo[prefix].append(str(o))
     return pfxo
 
@@ -137,6 +140,7 @@ def outputJSON(data,fout):
 
 def outputPG(data,dbconnstr):
     print_info(dbconnstr)
+    global prefix_ids
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
@@ -176,13 +180,16 @@ def outputPG(data,dbconnstr):
                     pid = cur.fetchone()[0]
                 prefix_ids[p] = pid
             if pid > 0:
-                for a in origins[p]:
-                    try:
-                        cur.execute(insert_origin, [did,pid,a])
-                        con.commit()
-                    except Exception, e:
-                        print_error("INSERT INTO t_origins failed with: %s" % (e.message))
-                        con.rollback()
+                with open(t_file, "wb") as f:
+                    for a in origins[p]:
+                        f.write("%s\t%s\t%s\n" % (did,pid,a))
+
+                try:
+                    cur.copy_from(t_file, 't_origins')
+                    con.commit()
+                except Exception, e:
+                    print_error("INSERT INTO t_origins failed with: %s" % (e.message))
+                    con.rollback()
 
 
 def outputStdout(data):
