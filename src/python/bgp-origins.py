@@ -56,11 +56,13 @@ def parseOrigins(fin):
         if prefix not in pfxo:
             pfxo[prefix] = list()
         for o in list(origins):
-            ostr = str(o)
             if isinstance(o, set) or isinstance(o,list):
-                ostr = str(o[0])
-            if ostr not in pfxo[prefix]:
-                pfxo[prefix].append(str(o))
+                for osub in list(o):
+                    if str(osub) not in pfxo[prefix]:
+                        pfxo[prefix].append(str(osub))
+            else:
+                if str(o) not in pfxo[prefix]:
+                    pfxo[prefix].append(str(o))
     return pfxo
 
 def parseFilename(fin):
