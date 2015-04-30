@@ -187,8 +187,9 @@ def outputPG(data,dbconnstr):
                         f.write("%s\t%s\t%s\n" % (did,pid,a))
 
                 try:
-                    cur.copy_from(t_file, 't_origins')
-                    con.commit()
+                    with open(t_file, "rb") as f:
+                        cur.copy_from(f, 't_origins')
+                        con.commit()
                 except Exception, e:
                     print_error("INSERT INTO t_origins failed with: %s" % (e.message))
                     con.rollback()
