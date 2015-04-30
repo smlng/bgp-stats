@@ -166,6 +166,7 @@ def outputPG(data,dbconnstr):
         con.commit()
         did = cur.fetchone()[0]
     if did > 0:
+        f = open(t_file, "wb")
         origins = data['origins']
         for p in origins:
             pid = 0
@@ -182,17 +183,16 @@ def outputPG(data,dbconnstr):
                     pid = cur.fetchone()[0]
                 prefix_ids[p] = pid
             if pid > 0:
-                with open(t_file, "wb") as f:
-                    for a in origins[p]:
-                        f.write("%s\t%s\t%s\n" % (did,pid,a))
-
-                try:
-                    with open(t_file, "rb") as f:
-                        cur.copy_from(f, 't_origins')
-                        con.commit()
-                except Exception, e:
-                    print_error("INSERT INTO t_origins failed with: %s" % (e.message))
-                    con.rollback()
+                for a in origins[p]:
+                    f.write("%s\t%s\t%s\n" % (did,pid,a))
+        f.close()
+        try:
+            with open(t_file, "rb") as f:
+                cur.copy_from(f, 't_origins')
+                con.commit()
+        except Exception, e:
+            print_error("INSERT INTO t_origins failed with: %s" % (e.message))
+            con.rollback()
 
 
 def outputStdout(data):
