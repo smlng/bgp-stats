@@ -148,7 +148,7 @@ def outputPG(data,dbconnstr):
     insert_dataset = "INSERT INTO t_datasets (ts, maptype, subtype) VALUES (%s,%s,%s) RETURNING id"
     query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
-    insert_origin = "INSERT INTO t_origings VALUES (%s,%s,%s)"
+    insert_origin = "INSERT INTO t_origins VALUES (%s,%s,%s)"
     did = 0
     ts_str = datetime.fromtimestamp(data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
     try:
@@ -180,7 +180,8 @@ def outputPG(data,dbconnstr):
                     try:
                         con.execute(insert_origin, [did,pid,a])
                         con.commit()
-                    except:
+                    except Exception, e:
+                        print_error("INSERT INTO t_origins failed with: %s" % (e.message))
                         con.rollback()
 
 
