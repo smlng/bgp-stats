@@ -8,10 +8,11 @@ import os
 import re
 import sys
 import json
+import psycopg2
 
 from bz2 import BZ2File
 from datetime import datetime, timedelta
-from multiprocessing import Process, Queue, cpu_count
+from multiprocessing import Process, Queue, cpu_count, current_process
 
 # own imports
 import mrtx
@@ -112,7 +113,7 @@ def workerThread(inq,outq):
             data = worker(fin)
             outq.put(data)
         except Exception, e:
-            print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
+            print_error("%s failed with: %s" % (current_process().name, e.message))
     return true
 
 def output(data, opts):
@@ -139,7 +140,7 @@ def outputPG(data,dbconnstr):
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
-        print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
+        print_error("%s failed with: %s" % (current_process().name, e.message))
         print_error("outputPG: connecting to database")
         sys.exit(1)
     cur = con.cursor()
@@ -149,12 +150,13 @@ def outputPG(data,dbconnstr):
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
     insert_origin = "INSERT INTO t_origings VALUES (%s,%s,%s)"
     did = 0
+    ts_str = datetime.fromtimestamp(data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
     try:
-        cur.execute(query_dataset, [data['timestamp'],data['maptype'],data['subtype']])
+        cur.execute(query_dataset, [ts_str,data['maptype'],data['subtype']])
         did = cur.fetchone()[0]
     except:
         con.rollback()
-        cur.execute(insert_dataset, [data['timestamp'],data['maptype'],data['subtype']])
+        cur.execute(insert_dataset, [ts_str,data['maptype'],data['subtype']])
         con.commit()
         did = cur.fetchone()[0]
     if did > 0:
@@ -194,7 +196,7 @@ def outputThread(outq, opts):
         try:
             output(odata, opts)
         except Exception, e:
-            print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
+            print_error("%s failed with: %s" % (current_process().name, e.message))
     return True
 
 def main():
@@ -242,7 +244,6 @@ def main():
         oopts['output'] = 'mongodb'
         oopts['params'] = args['mongodb']
     if args['postgres']:
-        import psycopg2
         oopts['output'] = 'postgres'
         oopts['params'] = args['postgres']
     if args['json']:
