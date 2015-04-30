@@ -28,6 +28,8 @@ re_path_rr = re.compile('.*/(rrc\d\d)/\d\d\d\d.\d\d.*')
 
 existing_data = list()
 
+prefix_ids = dict()
+
 def print_log(*objs):
     if logging or verbose:
         print("[LOGS] .", *objs, file=sys.stdout)
@@ -139,6 +141,44 @@ def outputPG(data,dbconnstr):
         print_error("outputPG: connecting to database")
         sys.exit(1)
     cur = con.cursor()
+    query_dataset = "SELECT id FROM t_datasets WHERE ts = %s AND  maptype = %s AND subtype = %s"
+    insert_dataset = "INSERT INTO t_datasets (ts, maptype, subtype) VALUES (%s,%s,%s) RETURNING id"
+    query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
+    insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
+    insert_origin = "INSERT INTO t_origings VALUES (%s,%s,%s)"
+    did = 0
+    try:
+        cur.execute(query_dataset, [data['timestamp'],data['maptype'],data['subtype']])
+        did = cur.fetchone()[0]
+    except:
+        con.rollback()
+        cur.execute(insert_dataset, [data['timestamp'],data['maptype'],data['subtype']])
+        con.commit()
+        did = cur.fetchone()[0]
+    if did > 0:
+        origins = data['origins']
+        for p in origins:
+            pid = 0
+            if p in prefix_ids:
+                pid = prefix_ids[p]
+            else:
+                try:
+                    cur.execute(query_prefix, [p])
+                    pid = cur.fetchone()[0]
+                except:
+                    con.rollback()
+                    cur.execute(insert_prefix, [p])
+                    con.commit()
+                    pid = cur.fetchone()[0]
+                prefix_ids[p] = pid
+            if pid > 0:
+                for a in origins[p]:
+                    try:
+                        con.execute(insert_origin, [did,pid,a])
+                        con.commit()
+                    except:
+                        con.rollback()
+
 
 def outputStdout(data):
     print (json.dumps(data, sort_keys=True, indent=2, separators=(',', ': ')))
