@@ -135,9 +135,11 @@ def outputJSON(data,fout):
         print_error("Failed to write data as JSON to file %s." % (fout))
 
 def outputPG(data,dbconnstr):
+    print_info(dbconnstr)
     try:
         con = psycopg2.connect(dbconnstr)
-    except:
+    except Exception, e:
+        print_error("%s failed on %s with: %s" % (current_process().name, url, e.message))
         print_error("outputPG: connecting to database")
         sys.exit(1)
     cur = con.cursor()
@@ -278,12 +280,12 @@ def main():
                 input_queue.put(f)
             # start workers to calc stats
             for w in xrange(workers):
-                p = Process(target=statsThread, args=(input_queue,output_queue))
+                p = Process(target=workerThread, args=(input_queue,output_queue))
                 p.start()
                 processes.append(p)
                 input_queue.put('DONE')
             # start output process to 
-            output_p = Process(target=outputThread, args=(output_queue,writedata))
+            output_p = Process(target=outputThread, args=(output_queue,oopts))
             output_p.start()
 
             for p in processes:
