@@ -98,6 +98,25 @@ dax.data$month <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="
 dax.data$week  <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%W"))
 dax.data$day   <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%d"))
 
+dow.data <- read.csv("../../raw/dow.dat",sep=";",header=T,stringsAsFactors=F)
+dow.data$final <- sub(".","",dow.data$final,fixed=TRUE)
+dow.data$final <- sub(",",".",dow.data$final,fixed=TRUE)
+dow.data$final <- as.numeric(dow.data$final)
+dow.data$start <- sub(".","",dow.data$start,fixed=TRUE)
+dow.data$start <- sub(",",".",dow.data$start,fixed=TRUE)
+dow.data$start <- as.numeric(dow.data$start)
+dow.data$high <- sub(".","",dow.data$high,fixed=TRUE)
+dow.data$high <- sub(",",".",dow.data$high,fixed=TRUE)
+dow.data$high <- as.numeric(dow.data$high)
+dow.data$low <- sub(".","",dow.data$low,fixed=TRUE)
+dow.data$low <- sub(",",".",dow.data$low,fixed=TRUE)
+dow.data$low <- as.numeric(dow.data$low)
+dow.data$timestamp <- as.numeric(as.POSIXct(dow.data$date, format="%d.%m.%Y"))
+dow.data$date  <- as.Date(dow.data$date,"%d.%m.%Y")
+dow.data$year  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%Y"))
+dow.data$month <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%m"))
+dow.data$week  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%W"))
+dow.data$day   <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%d"))
 # rearrange bgp data
 bgp.stats.melt <- melt(bgp.stats, id.vars=c("timestamp","maptype","subtype","year","month","day"))
 pv <- c("num_pfx_ips","num_asn","num_pfx")
@@ -234,6 +253,7 @@ bgp.avgnum.month.cor <- cor(bgp.avgnum.month[,c("ani","anp","ana")])
 bgp.avgnum.year.cor <- cor(bgp.avgnum.year[,c("ani","anp","ana")])
 
 ## index analysis
+### dax
 dax.slopes.week <- ddply(dax.data,.(year,week),index.calc_slopes)
 dax.slopes.week.melt <- melt(dax.slopes.week, id.vars=c("year","week"))
 dax.slopes.week.plot <- ggplot(dax.slopes.week.melt,
@@ -266,6 +286,46 @@ dax.slopes.year <- ddply(dax.data,.(year),index.calc_slopes)
 dax.slopes.year.melt <- melt(dax.slopes.year, id.vars=c("year"))
 dax.slopes.year.plot <- ggplot(dax.slopes.year.melt,
                                aes(x=as.Date(paste(dax.slopes.year.melt$year,
+                                                   01,01,sep="/"),"%Y/%m/%d"),
+                                   y=value,color=variable)) + 
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  facet_wrap(~variable,ncol=1)
+
+### dow jones
+dow.slopes.week <- ddply(dow.data,.(year,week),index.calc_slopes)
+dow.slopes.week.melt <- melt(dow.slopes.week, id.vars=c("year","week"))
+dow.slopes.week.plot <- ggplot(dow.slopes.week.melt,
+                               aes(x=as.POSIXct(as.Date(paste(dow.slopes.week.melt$year,
+                                                              dow.slopes.week.melt$week,
+                                                              1,sep="/"),"%Y/%W/%w")),
+                                   y=value,color=variable)) + 
+  geom_point() +
+  geom_line() +
+  #scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
+  #scale_y_continuous(limits=c(-50,50)) +
+  theme_bw() +
+  facet_wrap(~variable,ncol=1)
+
+dow.slopes.month <- ddply(dow.data,.(year,month),index.calc_slopes)
+dow.slopes.month.melt <- melt(dow.slopes.month, id.vars=c("year","month"))
+dow.slopes.month.plot <- ggplot(dow.slopes.month.melt,
+                                aes(x=as.POSIXct(as.Date(paste(dow.slopes.month.melt$year,
+                                                               dow.slopes.month.melt$month,
+                                                               01,sep="/"),"%Y/%m/%d")),
+                                    y=value,color=variable)) + 
+  geom_point() +
+  scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
+  #scale_y_continuous(limits=c(-20,20)) +
+  geom_line() +
+  theme_bw() +
+  facet_wrap(~variable,ncol=1)
+
+dow.slopes.year <- ddply(dow.data,.(year),index.calc_slopes)
+dow.slopes.year.melt <- melt(dow.slopes.year, id.vars=c("year"))
+dow.slopes.year.plot <- ggplot(dow.slopes.year.melt,
+                               aes(x=as.Date(paste(dow.slopes.year.melt$year,
                                                    01,01,sep="/"),"%Y/%m/%d"),
                                    y=value,color=variable)) + 
   geom_point() +
