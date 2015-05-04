@@ -43,7 +43,7 @@ calc_avgpfxlen <- function(df) {
 
 ### processing
 
-#bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';', header=T)
+bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';', header=T)
 #bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';', header=T)
 cn <- colnames(bgp.stats.all)
 cn[1] <- "timestamp"
@@ -93,7 +93,7 @@ slopes.week.plot <- ggplot(slopes.week.melt,aes(x=as.POSIXct(as.Date(paste(slope
   geom_point() +
   geom_line() +
   #scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
-  scale_y_continuous(limits=c(-30,30)) +
+  scale_y_continuous(limits=c(-50,50)) +
   theme_bw() +
   facet_wrap(~variable,ncol=1)
 
@@ -101,6 +101,7 @@ slopes.month <- ddply(bgp.stats,.(year,month),calc_slopes)
 slopes.month.melt <- melt(slopes.month, id.vars=c("year","month"))
 slopes.month.plot <- ggplot(slopes.month.melt,aes(x=as.Date(paste(slopes.month.melt$year,slopes.month.melt$month,01,sep="/"),"%Y/%m/%d"),y=value,color=variable)) + 
   geom_point() +
+  scale_y_continuous(limits=c(-20,20)) +
   geom_line() +
   theme_bw() +
   facet_wrap(~variable,ncol=1)

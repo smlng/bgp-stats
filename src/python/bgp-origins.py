@@ -9,6 +9,7 @@ import re
 import sys
 import json
 import psycopg2
+import StringIO
 
 from bz2 import BZ2File
 from datetime import datetime, timedelta
@@ -142,7 +143,6 @@ def outputJSON(data,fout):
 
 def outputPG(data,dbconnstr):
     print_info(dbconnstr)
-    global prefix_ids
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
@@ -155,6 +155,19 @@ def outputPG(data,dbconnstr):
     query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
     insert_origin = "INSERT INTO t_origins VALUES (%s,%s,%s)"
+
+    # get all prefixes already in database
+    query_all_prefixes = "SELECT prefix, id FROM t_prefixes"
+    prefix_ids = dict()
+    try: 
+        cur.execute(query_all_prefixes)
+        pfx = cur.fetchall()
+        prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
+    except Exception, e:
+        print_error("QUERY t_prefixes (1) failed with: %s" % (e.message))
+        con.rollback()
+
+    # create new dataset object in database, if not existing
     did = 0
     ts_str = datetime.fromtimestamp(data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
     try:
@@ -166,8 +179,34 @@ def outputPG(data,dbconnstr):
         con.commit()
         did = cur.fetchone()[0]
     if did > 0:
-        f = open(t_file, "wb")
         origins = data['origins']
+        prefix_new = set()
+        # find prefixes not in database
+        for p in origins:
+            pid = 0
+            if p not in prefix_ids:
+                prefix_new.add(p)
+        # write new prefixes to database
+        if len(prefix_new) > 0:
+            pfx_str = '\n'.join(x for x in prefix_new)
+            print(pfx_str)
+            f_pfx = f = StringIO.StringIO(pfx_str)
+            try:
+                cur.copy_from(f_pfx, 't_prefixes', columns=('prefix'))
+                con.commit()
+            except Exception, e:
+                print_error("COPY TO t_prefixes failed with: %s" % (e.message))
+                con.rollback()
+        # update prefix dict
+        try: 
+            cur.execute(query_all_prefixes)
+            pfx = cur.fetchall()
+            prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
+        except Exception, e:
+            print_error("QUERY t_prefixes (2) failed with: %s" % (e.message))
+            con.rollback()
+        # insert all origins into database
+        f = open(t_file, "wb")
         for p in origins:
             pid = 0
             if p in prefix_ids:
