@@ -11,6 +11,7 @@ import json
 import psycopg2
 import StringIO
 
+from pymongo import MongoClient
 from bz2 import BZ2File
 from datetime import datetime, timedelta
 from multiprocessing import Process, Queue, cpu_count, current_process
@@ -52,18 +53,20 @@ def parseOrigins(fin):
     f = (BZ2File(fin, 'rb'), gzip.open(fin, 'rb'))[fin.lower().endswith('.gz')]
     data = mrtx.parse_mrt_file(f, print_progress=verbose)
     f.close()
-    pfxo = dict()
+    pfxo = list()
     for prefix, origins in data.items():
-        if prefix not in pfxo:
-            pfxo[prefix] = list()
+        pfx = dict()
+        pfx['prefix'] = prefix
+        pfx['origins'] = list()
         for o in list(origins):
             if isinstance(o, set) or isinstance(o,list):
                 for osub in list(o):
-                    if str(osub) not in pfxo[prefix]:
-                        pfxo[prefix].append(str(osub))
+                    if str(osub) not in pfx['origins']:
+                        pfx['origins'].append(str(osub))
             else:
-                if str(o) not in pfxo[prefix]:
-                    pfxo[prefix].append(str(o))
+                if str(o) not in pfx['origins']:
+                    pfx['origins'].append(str(o))
+        pfxo.append(pfx)
     return pfxo
 
 def parseFilename(fin):
@@ -126,7 +129,9 @@ def output(data, opts):
     if opts['output'] == 'json':
         outputJSON(data, opts['params'])
     elif opts['output'] == 'postgres':
-        outputPG(data, opts['params'])
+        outputPostgres(data, opts['params'])
+    elif opts['output'] == 'mongodb':
+        outputMongodb(data, opts['params'])
     elif opts['output']:
         print_info ("using %s with params %s." % (opts['database'],opts['params']))
     else:
@@ -141,7 +146,14 @@ def outputJSON(data,fout):
     except:
         print_error("Failed to write data as JSON to file %s." % (fout))
 
-def outputPG(data,dbconnstr):
+def outputMongodb(data,dbconnstr):
+    client = MongoClient(dbconnstr)
+    db = client.get_default_database()
+    ds = db.datasets
+    ds_id = ds.insert_one(data).inserted_id
+    print_info("Insert ID: %s" % (str(ds_id)))
+
+def outputPostgres(data,dbconnstr):
     print_info(dbconnstr)
     try:
         con = psycopg2.connect(dbconnstr)
@@ -184,8 +196,8 @@ def outputPG(data,dbconnstr):
         # find prefixes not in database
         for p in origins:
             pid = 0
-            if p not in prefix_ids:
-                prefix_new.add(p)
+            if p['prefix'] not in prefix_ids:
+                prefix_new.add(p['prefix'])
         # write new prefixes to database
         if len(prefix_new) > 0:
             print_log("#new prefixes: %s" % (str(len(prefix_new))))
@@ -209,20 +221,20 @@ def outputPG(data,dbconnstr):
         f = open(t_file, "wb")
         for p in origins:
             pid = 0
-            if p in prefix_ids:
-                pid = prefix_ids[p]
+            if p['prefix'] in prefix_ids:
+                pid = prefix_ids[p['prefix']]
             else:
                 try:
-                    cur.execute(query_prefix, [p])
+                    cur.execute(query_prefix, [p['prefix']])
                     pid = cur.fetchone()[0]
                 except:
                     con.rollback()
-                    cur.execute(insert_prefix, [p])
+                    cur.execute(insert_prefix, [p['prefix']])
                     con.commit()
                     pid = cur.fetchone()[0]
-                prefix_ids[p] = pid
+                prefix_ids[p['prefix']] = pid
             if pid > 0:
-                for a in origins[p]:
+                for a in p['origins']:
                     f.write("%s\t%s\t%s\n" % (did,pid,a))
         f.close()
         try:
