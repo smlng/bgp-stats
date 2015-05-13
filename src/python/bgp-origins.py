@@ -171,7 +171,7 @@ def outputPostgres(data,dbconnstr):
     # get all prefixes already in database
     query_all_prefixes = "SELECT prefix, id FROM t_prefixes"
     prefix_ids = dict()
-    try: 
+    try:
         cur.execute(query_all_prefixes)
         pfx = cur.fetchall()
         prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
@@ -210,7 +210,7 @@ def outputPostgres(data,dbconnstr):
                 print_error("COPY TO t_prefixes failed with: %s" % (e.message))
                 con.rollback()
         # update prefix dict
-        try: 
+        try:
             cur.execute(query_all_prefixes)
             pfx = cur.fetchall()
             prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
@@ -270,14 +270,14 @@ def main():
     imode = parser.add_mutually_exclusive_group(required=True)
     imode.add_argument('-s', '--single',        help='Process a single file, results are printed to STDOUT.')
     imode.add_argument('-b', '--bulk',          help='Process a bunch of files in given directory (optional recursive).')
-    parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')   
+    parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')
     omode = parser.add_mutually_exclusive_group(required=False)
     omode.add_argument('-j', '--json',          help='Write data to JSON file.',    default=False)
     omode.add_argument('-c', '--couchdb',       help='Write data to CouchDB.',      default=False)
     omode.add_argument('-m', '--mongodb',       help='Write data to MongoDB.',      default=False)
     omode.add_argument('-p', '--postgres',      help='Write data to PostgresqlDB.', default=False)
     args = vars(parser.parse_args())
-    
+
     global verbose
     verbose   = args['verbose']
 
@@ -346,7 +346,7 @@ def main():
                 p.start()
                 processes.append(p)
                 input_queue.put('DONE')
-            # start output process to 
+            # start output process to
             output_p = Process(target=outputThread, args=(output_queue,oopts))
             output_p.start()
 
