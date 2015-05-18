@@ -1,0 +1,30 @@
+-- get count for each prefix length for a certain dataset_id (or timestamp)
+SELECT masklen(p.prefix), count(masklen(p.prefix)) FROM ((SELECT prefix_id FROM t_origins WHERE dataset_id = 1) AS o LEFT JOIN t_prefixes p ON o.prefix_id = p.id) group by masklen;
+
+-- get average prefix length for a certain dataset_id (or timestamp)
+SELECT avg(masklen(p.prefix)) FROM ((SELECT prefix_id FROM t_origins WHERE dataset_id = 1) AS o LEFT JOIN t_prefixes p ON o.prefix_id = p.id);
+
+-- get number of origin AS grouped by prefix and timestamp
+SELECT prefix pfx, ts, COUNT(asn) cnt FROM tmp_origins GROUP BY prefix, ts ORDER BY cnt;
+
+-- get all prefix with multiple origin AS (MOAS) for a certain timestamp
+SELECT * FROM (SELECT prefix pfx, COUNT(asn) cnt FROM tmp_origins WHERE ts = '2005-01-01 20:33:00' GROUP BY prefix ORDER BY cnt DESC) AS foo WHERE cnt > 1;
+
+-- same as before
+SELECT p.prefix, o.cnt FROM ((SELECT prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id = 1 GROUP BY prefix_id ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id) WHERE o.cnt > 1;
+
+-- get number of prefixes with MOAS for certain dataset_id
+SELECT COUNT(*) FROM ((SELECT prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id = 1 GROUP BY prefix_id ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id) WHERE o.cnt > 1;
+
+
+-- get number of prefixes with MOAS for datasets with id < N order by timestamp
+SELECT d.ts ts, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id < 5 GROUP BY did, pid ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id LEFT JOIN t_datasets AS d ON o.did = d.id) WHERE o.cnt > 1 GROUP BY ts ORDER BY ts;
+
+--
+SELECT d.ts ts, d.maptype, d.subtype, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id < 50 GROUP BY did, pid ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id LEFT JOIN t_datasets AS d ON o.did = d.id) WHERE o.cnt > 1 GROUP BY ts,maptype,subtype ORDER BY ts;
+
+-- get number of prefixes with MOAS over all datasets
+SELECT o.did, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins GROUP BY did, pid ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id) WHERE o.cnt > 1 GROUP BY o.did;
+
+--
+SELECT d.ts, d.subtype, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins GROUP BY did, pid) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id LEFT JOIN t_datasets AS d ON o.did = d.id) WHERE cnt > 1 GROUP BY ts, subtype ORDER BY ts;
