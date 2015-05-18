@@ -61,8 +61,8 @@ index.calc_slopes <- function(df) {
 }
 ### processing
 
-bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';',header=T,stringsAsFactors=F)
-#bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';', header=T)
+#bgp.stats.all <- read.csv("../../raw/mobi1.rv_eqix.stats",sep=';',header=T,stringsAsFactors=F)
+bgp.stats.all <- read.csv("../../raw/mobi1.rv_wide.stats",sep=';', header=T,stringsAsFactors=F)
 cn <- colnames(bgp.stats.all)
 cn[1] <- "timestamp"
 colnames(bgp.stats.all) <- cn
@@ -77,46 +77,6 @@ bgp.stats$rel_num_pfx_ips <- bgp.stats$num_pfx_ips / max(bgp.stats$num_pfx_ips)
 bgp.stats$rel_num_pfx <- bgp.stats$num_pfx / max(bgp.stats$num_pfx)
 bgp.stats$rel_num_asn <- bgp.stats$num_asn / max(bgp.stats$num_asn)
 
-# read stock data
-dax.data <- read.csv("../../raw/dax.dat",sep=";",header=T,stringsAsFactors=F)
-dax.data$final <- sub(".","",dax.data$final,fixed=TRUE)
-dax.data$final <- sub(",",".",dax.data$final,fixed=TRUE)
-dax.data$final <- as.numeric(dax.data$final)
-dax.data$start <- sub(".","",dax.data$start,fixed=TRUE)
-dax.data$start <- sub(",",".",dax.data$start,fixed=TRUE)
-dax.data$start <- as.numeric(dax.data$start)
-dax.data$high <- sub(".","",dax.data$high,fixed=TRUE)
-dax.data$high <- sub(",",".",dax.data$high,fixed=TRUE)
-dax.data$high <- as.numeric(dax.data$high)
-dax.data$low <- sub(".","",dax.data$low,fixed=TRUE)
-dax.data$low <- sub(",",".",dax.data$low,fixed=TRUE)
-dax.data$low <- as.numeric(dax.data$low)
-dax.data$timestamp <- as.numeric(as.POSIXct(dax.data$date, format="%d.%m.%Y"))
-dax.data$date  <- as.Date(dax.data$date,"%d.%m.%Y")
-dax.data$year  <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%Y"))
-dax.data$month <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%m"))
-dax.data$week  <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%W"))
-dax.data$day   <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%d"))
-
-dow.data <- read.csv("../../raw/dow.dat",sep=";",header=T,stringsAsFactors=F)
-dow.data$final <- sub(".","",dow.data$final,fixed=TRUE)
-dow.data$final <- sub(",",".",dow.data$final,fixed=TRUE)
-dow.data$final <- as.numeric(dow.data$final)
-dow.data$start <- sub(".","",dow.data$start,fixed=TRUE)
-dow.data$start <- sub(",",".",dow.data$start,fixed=TRUE)
-dow.data$start <- as.numeric(dow.data$start)
-dow.data$high <- sub(".","",dow.data$high,fixed=TRUE)
-dow.data$high <- sub(",",".",dow.data$high,fixed=TRUE)
-dow.data$high <- as.numeric(dow.data$high)
-dow.data$low <- sub(".","",dow.data$low,fixed=TRUE)
-dow.data$low <- sub(",",".",dow.data$low,fixed=TRUE)
-dow.data$low <- as.numeric(dow.data$low)
-dow.data$timestamp <- as.numeric(as.POSIXct(dow.data$date, format="%d.%m.%Y"))
-dow.data$date  <- as.Date(dow.data$date,"%d.%m.%Y")
-dow.data$year  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%Y"))
-dow.data$month <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%m"))
-dow.data$week  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%W"))
-dow.data$day   <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%d"))
 # rearrange bgp data
 bgp.stats.melt <- melt(bgp.stats, id.vars=c("timestamp","maptype","subtype","year","month","day"))
 pv <- c("num_pfx_ips","num_asn","num_pfx")
@@ -126,7 +86,7 @@ from_date <- strptime("2008/01/01 0:00:01","%Y/%m/%d %H:%M:%S")
 until_date <- strptime("2011/12/31 23:59:59","%Y/%m/%d %H:%M:%S")
 ggplot(df, aes(x=as.POSIXct(timestamp, origin = "1970-01-01", tz = "GMT"),y=value,color=variable)) + 
   geom_point() +
-  scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
+  #scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
   scale_y_log10() +
   facet_wrap(~variable,ncol=1)
 
@@ -172,7 +132,7 @@ bgp.slopes.month.plot <- ggplot(bgp.slopes.month.melt,
                                     y=value,color=variable)) + 
   geom_point() +
   scale_y_continuous(limits=c(-20,20)) +
-  scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
+  #scale_x_datetime(limits=c(as.POSIXct(from_date), as.POSIXct(until_date)),labels = date_format("%Y/%m")) +
   geom_line() +
   theme_bw() +
   facet_wrap(~variable,ncol=1)
@@ -253,6 +213,46 @@ bgp.avgnum.month.cor <- cor(bgp.avgnum.month[,c("ani","anp","ana")])
 bgp.avgnum.year.cor <- cor(bgp.avgnum.year[,c("ani","anp","ana")])
 
 ## index analysis
+# read stock data
+dax.data <- read.csv("../../raw/dax.dat",sep=";",header=T,stringsAsFactors=F)
+dax.data$final <- sub(".","",dax.data$final,fixed=TRUE)
+dax.data$final <- sub(",",".",dax.data$final,fixed=TRUE)
+dax.data$final <- as.numeric(dax.data$final)
+dax.data$start <- sub(".","",dax.data$start,fixed=TRUE)
+dax.data$start <- sub(",",".",dax.data$start,fixed=TRUE)
+dax.data$start <- as.numeric(dax.data$start)
+dax.data$high <- sub(".","",dax.data$high,fixed=TRUE)
+dax.data$high <- sub(",",".",dax.data$high,fixed=TRUE)
+dax.data$high <- as.numeric(dax.data$high)
+dax.data$low <- sub(".","",dax.data$low,fixed=TRUE)
+dax.data$low <- sub(",",".",dax.data$low,fixed=TRUE)
+dax.data$low <- as.numeric(dax.data$low)
+dax.data$timestamp <- as.numeric(as.POSIXct(dax.data$date, format="%d.%m.%Y"))
+dax.data$date  <- as.Date(dax.data$date,"%d.%m.%Y")
+dax.data$year  <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%Y"))
+dax.data$month <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%m"))
+dax.data$week  <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%W"))
+dax.data$day   <- as.numeric(strftime(as.Date(dax.data$date,"%d.%m.%Y"),format="%d"))
+
+dow.data <- read.csv("../../raw/dow.dat",sep=";",header=T,stringsAsFactors=F)
+dow.data$final <- sub(".","",dow.data$final,fixed=TRUE)
+dow.data$final <- sub(",",".",dow.data$final,fixed=TRUE)
+dow.data$final <- as.numeric(dow.data$final)
+dow.data$start <- sub(".","",dow.data$start,fixed=TRUE)
+dow.data$start <- sub(",",".",dow.data$start,fixed=TRUE)
+dow.data$start <- as.numeric(dow.data$start)
+dow.data$high <- sub(".","",dow.data$high,fixed=TRUE)
+dow.data$high <- sub(",",".",dow.data$high,fixed=TRUE)
+dow.data$high <- as.numeric(dow.data$high)
+dow.data$low <- sub(".","",dow.data$low,fixed=TRUE)
+dow.data$low <- sub(",",".",dow.data$low,fixed=TRUE)
+dow.data$low <- as.numeric(dow.data$low)
+dow.data$timestamp <- as.numeric(as.POSIXct(dow.data$date, format="%d.%m.%Y"))
+dow.data$date  <- as.Date(dow.data$date,"%d.%m.%Y")
+dow.data$year  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%Y"))
+dow.data$month <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%m"))
+dow.data$week  <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%W"))
+dow.data$day   <- as.numeric(strftime(as.Date(dow.data$date,"%d.%m.%Y"),format="%d"))
 ### dax
 dax.slopes.week <- ddply(dax.data,.(year,week),index.calc_slopes)
 dax.slopes.week.melt <- melt(dax.slopes.week, id.vars=c("year","week"))
