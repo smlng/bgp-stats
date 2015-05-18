@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS v_origins;
+CREATE TABLE v_origins (ts, prefix, origin) AS (
+  SELECT d.ts, p.prefix, o.asn FROM t_origins AS o
+  LEFT JOIN (SELECT id, ts FROM t_datasets) AS d ON o.dataset_id = d.id
+  LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id
+);
