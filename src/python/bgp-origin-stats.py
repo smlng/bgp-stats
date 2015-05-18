@@ -117,6 +117,37 @@ def process_data(data):
         results[pfx].append( origin_ttl )
     return results
 
+def process_data2(data):
+    results = dict()
+    for pfx in data:
+        # ignore timestamp field
+        if pfx == 'ts':
+            continue
+        #print_info("processing prefix: %s" % (pfx))
+        results[pfx] = list()
+        ts0 = data['ts'][0]
+        as0 = set(data[pfx][0])
+        ts1 = ts0
+        as1 = as0
+        for i in range(2,len(data[pfx])):
+            ts2 = data['ts'][i]
+            as2 = set(data[pfx][i])
+            if as2 != as0:
+                origin_ttl = (as0, ts0, ts1)
+                results[pfx].append( origin_ttl )
+                as0 = as2
+                ts0 = ts2
+                as1 = as2
+                ts1 = ts2
+            else:
+                ts1 = ts2
+        origin_ttl = (as0, ts0, ts1)
+        results[pfx].append( origin_ttl )
+    return results
+
+def origin_ttl(data):
+    pass
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--logging',      help='Ouptut logging.', action='store_true')
