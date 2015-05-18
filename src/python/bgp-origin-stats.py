@@ -78,7 +78,7 @@ def main():
 
     start_time = datetime.now()
     print_log("START: " + start_time.strftime('%Y-%m-%d %H:%M:%S'))
-    
+
     end_time = datetime.now()
     print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
     done_time = end_time - start_time
