@@ -167,6 +167,7 @@ def outputPostgres(data,dbconnstr):
     query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
     insert_origin = "INSERT INTO t_origins VALUES (%s,%s,%s)"
+    copy_origins = "COPY t_origins FROM \'%s\'" % (t_file)
 
     # get all prefixes already in database
     query_all_prefixes = "SELECT prefix, id FROM t_prefixes"
@@ -238,12 +239,11 @@ def outputPostgres(data,dbconnstr):
                     f.write("%s\t%s\t%s\n" % (did,pid,a))
         f.close()
         try:
-            with open(t_file, "rb") as f:
-                cur.copy_from(f, 't_origins')
+            cur.execute(copy_origins)
+            con.commit()
         except Exception, e:
-            print_error("INSERT INTO t_origins failed with: %s" % (e.message))
+            print_error("INSERT: %s failed with: %s" % (copy_origins, e.message))
             con.rollback()
-
 
 def outputStdout(data):
     print (json.dumps(data, sort_keys=True, indent=2, separators=(',', ': ')))
