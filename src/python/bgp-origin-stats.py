@@ -102,18 +102,14 @@ def process_data(data):
         ts1 = ts0
         as1 = as0
         for i in range(2,len(data[pfx])):
-            ts2 = data['ts'][i]
-            as2 = data[pfx][i][0]
-            if as2 != as0:
-                origin_ttl = (as0, ts0, ts1)
+            ts1 = data['ts'][i]
+            as1 = data[pfx][i][0]
+            if as1 != as0:
+                origin_ttl = (ts0, ts1, as0)
                 results[pfx].append( origin_ttl )
-                as0 = as2
-                ts0 = ts2
-                as1 = as2
-                ts1 = ts2
-            else:
-                ts1 = ts2
-        origin_ttl = (as0, ts0, ts1)
+                as0 = as1
+                ts0 = ts1
+        origin_ttl = (ts0, ts1, as0)
         results[pfx].append( origin_ttl )
     return results
 
@@ -130,23 +126,27 @@ def process_data2(data):
         ts1 = ts0
         as1 = as0
         for i in range(2,len(data[pfx])):
-            ts2 = data['ts'][i]
-            as2 = set(data[pfx][i])
-            if as2 != as0:
-                origin_ttl = (as0, ts0, ts1)
+            ts1 = data['ts'][i]
+            as1 = set(data[pfx][i])
+            if as1 != as0:
+                origin_ttl = (ts0, ts1, as0)
                 results[pfx].append( origin_ttl )
-                as0 = as2
-                ts0 = ts2
-                as1 = as2
-                ts1 = ts2
-            else:
-                ts1 = ts2
-        origin_ttl = (as0, ts0, ts1)
+                as0 = as1
+                ts0 = ts1
+        origin_ttl = (ts0, ts1, as0)
         results[pfx].append( origin_ttl )
     return results
 
 def origin_ttl(data):
-    pass
+    results = list()
+    for pfx in data:
+        for o in data[pfx]:
+            ts0 = int((datetime.strptime(o[0], "%Y-%m-%d %H:%M:%S") - datetime(1970, 1, 1)).total_seconds())
+            ts1 = int((datetime.strptime(o[1], "%Y-%m-%d %H:%M:%S") - datetime(1970, 1, 1)).total_seconds())
+            ttl = ts1 - ts0
+            if ttl > 0:
+                results.append(ttl)
+    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -173,9 +173,11 @@ def main():
     print_log("START: " + start_time.strftime('%Y-%m-%d %H:%M:%S'))
 
     if args['postgres']:
-        res = retrieve_postgres(args['postgres'])
-        out = process_data(res)
-        print(json.dumps(out, sort_keys=True, indent=4, separators=(',', ': ')))
+        rres = retrieve_postgres(args['postgres'])
+        pres = process_data(rres)
+        out = origin_ttl(pres)
+        #print(json.dumps(out, sort_keys=True, indent=4, separators=(',', ': ')))
+        print('\n'.join(str(x) for x in out))
     else:
         print_error('No valid data source found!')
     end_time = datetime.now()
