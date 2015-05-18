@@ -62,6 +62,10 @@ def retrieve_postgres(dbconnstr, maxts='2005-01-03', mt='routeviews', st='route-
     for did in datasets:
         print_info("RUN %s, processing did: %s, dts: %s" % (str(cnt+1), did, datasets[did]))
         results['ts'].append(datasets[did])
+        # add default asn 0 to all existing prefixes
+        for p in results:
+            if p != 'ts':
+                results[p].append([0])
         try:
             query = query_origins % did
             cur.execute(query)
@@ -71,15 +75,12 @@ def retrieve_postgres(dbconnstr, maxts='2005-01-03', mt='routeviews', st='route-
                 asn = int(rs[i][1])
                 if pfx not in results:
                     results[pfx] = list()
-                    j = 0
-                    while j < cnt:
+                    for j in range(cnt+1):
                         results[pfx].append([0])
-                        j = j+1
-                if len(results[pfx]) < cnt:
-                    for k in range(len(results[pfx]),cnt):
-                        results[pfx].append([0])
-                if len(results[pfx]) == cnt:
-                    results[pfx].append([asn])
+                # replace first asn if 0
+                if results[pfx][cnt][0] == 0:
+                    results[pfx][cnt][0] = asn
+                # add MOAS to prefix
                 else:
                     results[pfx][cnt].append(asn)
         except Exception, e:
@@ -103,7 +104,7 @@ def process_data(data):
         for i in range(2,len(data[pfx])):
             ts2 = data['ts'][i]
             as2 = data[pfx][i][0]
-            if as2 != as1:
+            if as2 != as0:
                 origin_ttl = (as0, ts0, ts1)
                 results[pfx].append( origin_ttl )
                 as0 = as2
@@ -112,6 +113,8 @@ def process_data(data):
                 ts1 = ts2
             else:
                 ts1 = ts2
+        origin_ttl = (as0, ts0, ts1)
+        results[pfx].append( origin_ttl )
     return results
 
 def main():
