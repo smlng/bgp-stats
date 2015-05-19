@@ -197,7 +197,10 @@ def outputPostgres(data,dbconnstr):
         # find prefixes not in database
         for p in origins:
             pid = 0
-            if p['prefix'] not in prefix_ids:
+            ptmp = p['prefix']
+            if ptmp.endswith('/32'):
+                ptmp = p['prefix'][:-3]
+            if ptmp not in prefix_ids:
                 prefix_new.add(p['prefix'])
         # write new prefixes to database
         if len(prefix_new) > 0:
@@ -222,8 +225,11 @@ def outputPostgres(data,dbconnstr):
         f = open(t_file, "wb")
         for p in origins:
             pid = 0
-            if p['prefix'] in prefix_ids:
-                pid = prefix_ids[p['prefix']]
+            ptmp = p['prefix']
+            if ptmp.endswith('/32'):
+                ptmp = p['prefix'][:-3]
+            if ptmp in prefix_ids:
+                pid = prefix_ids[ptmp]
             else:
                 try:
                     cur.execute(query_prefix, [p['prefix']])
