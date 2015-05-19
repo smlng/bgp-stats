@@ -101,8 +101,10 @@ def parseFilename(fin):
         time = m.group(2)
     else:
         print_warn("Unknown BGP data source (filename).")
-    dt = "%s-%s-%s %s:%s" % (str(date[0:4]),str(date[4:6]),str(date[6:8]),str(time[0:2]),str(time[2:4]))
-    ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") - datetime(1970, 1, 1)).total_seconds())
+    dt = "%s-%s-%s %s:%s" % (str(date[0:4]),str(date[4:6]),
+                             str(date[6:8]),str(time[0:2]),str(time[2:4]))
+    ts = int((datetime.strptime(dt, "%Y-%m-%d %H:%M") -
+             datetime(1970, 1, 1)).total_seconds())
     return ts, maptype, subtype
 
 def worker(fin):
@@ -122,7 +124,8 @@ def workerThread(inq,outq):
             data = worker(fin)
             outq.put(data)
         except Exception, e:
-            print_error("%s failed with: %s" % (current_process().name, e.message))
+            print_error("%s failed with: %s" %
+                        (current_process().name, e.message))
     return True
 
 def output(data, opts):
@@ -133,7 +136,8 @@ def output(data, opts):
     elif opts['output'] == 'mongodb':
         outputMongodb(data, opts['params'])
     elif opts['output']:
-        print_info ("using %s with params %s." % (opts['database'],opts['params']))
+        print_info ("using %s with params %s." %
+                    (opts['database'],opts['params']))
     else:
         outputStdout(data)
 
@@ -161,9 +165,12 @@ def outputPostgres(data,dbconnstr):
         print_error("%s failed with: %s" % (current_process().name, e.message))
         print_error("outputPG: connecting to database")
         sys.exit(1)
+
     cur = con.cursor()
-    query_dataset = "SELECT id FROM t_datasets WHERE ts = %s AND  maptype = %s AND subtype = %s"
-    insert_dataset = "INSERT INTO t_datasets (ts, maptype, subtype) VALUES (%s,%s,%s) RETURNING id"
+    query_dataset = "SELECT id FROM t_datasets " \
+                    "WHERE ts = %s AND  maptype = %s AND subtype = %s"
+    insert_dataset = "INSERT INTO t_datasets (ts, maptype, subtype) " \
+                     "VALUES (%s,%s,%s) RETURNING id"
     query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
     insert_origin = "INSERT INTO t_origins VALUES (%s,%s,%s)"
@@ -182,7 +189,8 @@ def outputPostgres(data,dbconnstr):
 
     # create new dataset object in database, if not existing
     did = 0
-    ts_str = datetime.fromtimestamp(data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+    ts_str = datetime.fromtimestamp(
+                data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
     try:
         cur.execute(query_dataset, [ts_str,data['maptype'],data['subtype']])
         did = cur.fetchone()[0]
@@ -248,7 +256,8 @@ def outputPostgres(data,dbconnstr):
             cur.execute(copy_origins)
             con.commit()
         except Exception, e:
-            print_error("INSERT: %s failed with: %s" % (copy_origins, e.message))
+            print_error("INSERT: %s failed with: %s" %
+                        (copy_origins, e.message))
             con.rollback()
 
 def outputStdout(data):
@@ -263,25 +272,48 @@ def outputThread(outq, opts):
         try:
             output(odata, opts)
         except Exception, e:
-            print_error("%s failed with: %s" % (current_process().name, e.message))
+            print_error("%s failed with: %s" %
+                        (current_process().name, e.message))
     return True
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--logging',      help='Ouptut logging.', action='store_true')
-    parser.add_argument('-w', '--warning',      help='Output warnings.', action='store_true')
-    parser.add_argument('-v', '--verbose',      help='Verbose output with debug info, logging, and warnings.', action='store_true')
-    parser.add_argument('-t', '--threads',      help='Use threads for parallel and faster processing.', action='store_true', default=False)
-    parser.add_argument('-n', '--numthreads',   help='Set number of threads.', type=int, default=None)
+    parser.add_argument('-l', '--logging',
+                        help='print logging.',
+                        action='store_true')
+    parser.add_argument('-w', '--warning',
+                        help='print warnings.',
+                        action='store_true')
+    parser.add_argument('-v', '--verbose',
+                        help='print everything.',
+                        action='store_true')
+    parser.add_argument('-t', '--threads',
+                        help='Use threads for parallel and faster processing.',
+                        action='store_true', default=False)
+    parser.add_argument('-n', '--numthreads',
+                        help='Set number of threads.',
+                        type=int, default=None)
     imode = parser.add_mutually_exclusive_group(required=True)
-    imode.add_argument('-s', '--single',        help='Process a single file, results are printed to STDOUT.')
-    imode.add_argument('-b', '--bulk',          help='Process a bunch of files in given directory (optional recursive).')
-    parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')
+    imode.add_argument('-s', '--single',
+                        help='Process a single file.')
+    imode.add_argument('-b', '--bulk',
+                        help='Bulk process directory (optional recursive).')
+    parser.add_argument('-r', '--recursive',
+                        help='Search directories recursivly if in bulk mode.',
+                        action='store_true')
     omode = parser.add_mutually_exclusive_group(required=False)
-    omode.add_argument('-j', '--json',          help='Write data to JSON file.',    default=False)
-    omode.add_argument('-c', '--couchdb',       help='Write data to CouchDB.',      default=False)
-    omode.add_argument('-m', '--mongodb',       help='Write data to MongoDB.',      default=False)
-    omode.add_argument('-p', '--postgres',      help='Write data to PostgresqlDB.', default=False)
+    omode.add_argument('-j', '--json',
+                        help='Write data to JSON file.',
+                        default=False)
+    omode.add_argument('-c', '--couchdb',
+                        help='Write data to CouchDB.',
+                        default=False)
+    omode.add_argument('-m', '--mongodb',
+                        help='Write data to MongoDB.',
+                        default=False)
+    omode.add_argument('-p', '--postgres',
+                        help='Write data to PostgresqlDB.',
+                        default=False)
     args = vars(parser.parse_args())
 
     global verbose
@@ -330,10 +362,12 @@ def main():
         all_files = []
         if recursive:
             for dirpath, dirnames, filenames in os.walk(bulk):
-                for filename in [f for f in filenames if (re_file_rv.match(f) or re_file_rr.match(f))]:
+                for filename in [f for f in filenames
+                        if (re_file_rv.match(f) or re_file_rr.match(f))]:
                     all_files.append(os.path.join(dirpath, filename))
         else:
-            for filename in [f for f in os.listdir(bulk) if (re_file_rv.match(f) or re_file_rr.match(f))]:
+            for filename in [f for f in os.listdir(bulk)
+                        if (re_file_rv.match(f) or re_file_rr.match(f))]:
                 all_files.append(os.path.join(bulk, filename))
 
         all_files.sort()
@@ -348,12 +382,14 @@ def main():
                 input_queue.put(f)
             # start workers to calc stats
             for w in xrange(workers):
-                p = Process(target=workerThread, args=(input_queue,output_queue))
+                p = Process(target=workerThread,
+                            args=(input_queue,output_queue))
                 p.start()
                 processes.append(p)
                 input_queue.put('DONE')
             # start output process to
-            output_p = Process(target=outputThread, args=(output_queue,oopts))
+            output_p = Process(target=outputThread,
+                               args=(output_queue,oopts))
             output_p.start()
 
             for p in processes:

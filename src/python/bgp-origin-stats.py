@@ -39,7 +39,8 @@ def valid_date(s):
         msg = "Not a valid date: '{0}'.".format(s)
         raise argparse.ArgumentTypeError(msg)
 
-def retrieve_postgres(dbconnstr, mints='2005-01-01', maxts='2005-01-03', mt='routeviews', st='route-views.wide'):
+def retrieve_postgres(  dbconnstr, mints='2005-01-01', maxts='2005-01-03',
+                        mt='routeviews', st='route-views.wide'):
     print_info(dbconnstr)
     try:
         con = psycopg2.connect(dbconnstr)
@@ -49,15 +50,20 @@ def retrieve_postgres(dbconnstr, mints='2005-01-01', maxts='2005-01-03', mt='rou
         sys.exit(1)
     cur = con.cursor()
 
-    query_datasets = "SELECT id, ts FROM t_datasets WHERE ts >= \'%s\' AND ts < \'%s\' AND maptype = \'%s\' AND subtype = \'%s\' ORDER BY ts"
-    query_origins = "SELECT p.prefix, o.asn FROM (SELECT * FROM t_origins WHERE dataset_id = \'%s\') AS o LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id"
+    query_datasets = "SELECT id, ts FROM t_datasets WHERE ts >= '%s' " \
+                     "AND ts < '%s' AND maptype = '%s' " \
+                     "AND subtype = '%s' ORDER BY ts"
+    query_origins = "SELECT p.prefix, o.asn FROM " \
+                    "(SELECT * FROM t_origins WHERE dataset_id = '%s') AS o " \
+                    "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id"
 
     datasets = OrderedDict()
     try:
         query = query_datasets % (mints,maxts,mt,st)
         cur.execute(query)
         rs = cur.fetchall()
-        datasets = OrderedDict((str(rs[i][0]), str(rs[i][1])) for i in range(len(rs)))
+        datasets = OrderedDict((str(rs[i][0]), str(rs[i][1]))
+                                for i in range(len(rs)))
     except Exception, e:
         print_error("QUERY: %s ; failed with: %s" % (query, e.message))
         con.rollback()
@@ -67,7 +73,8 @@ def retrieve_postgres(dbconnstr, mints='2005-01-01', maxts='2005-01-03', mt='rou
 
     cnt = 0
     for did in datasets:
-        print_info("RUN %s, processing did: %s, dts: %s" % (str(cnt+1), did, datasets[did]))
+        print_info("RUN %s, processing did: %s, dts: %s" %
+                    (str(cnt+1), did, datasets[did]))
         results['ts'].append(datasets[did])
         # add default asn 0 to all existing prefixes
         for p in results:
@@ -97,7 +104,8 @@ def retrieve_postgres(dbconnstr, mints='2005-01-01', maxts='2005-01-03', mt='rou
     return results
 
 '''
-Note: this function does not consider multiple origin AS for a prefix, it uses first in list only
+    Note: this function does not consider multiple origin AS
+    for a prefix, it uses first in list only
 '''
 def process_data(data):
     results = dict()
@@ -148,7 +156,8 @@ def process_data2(data):
     return results
 
 '''
-    calculate origin life time, that is duration in [s]econds of prefix <-> origin AS association
+    calculate origin life time, that is duration in [s]econds of
+    prefix <-> origin AS association
 
     returns list with tupels (prefix, origin-AS, ttl)
 '''
@@ -156,21 +165,25 @@ def origin_ttl(data):
     results = list()
     for pfx in data:
         for o in data[pfx]:
-            ts0 = int((datetime.strptime(o[0], "%Y-%m-%d %H:%M:%S") - datetime(1970, 1, 1)).total_seconds())
-            ts1 = int((datetime.strptime(o[1], "%Y-%m-%d %H:%M:%S") - datetime(1970, 1, 1)).total_seconds())
+            ts0 = int((datetime.strptime(o[0], "%Y-%m-%d %H:%M:%S") -
+                            datetime(1970, 1, 1)).total_seconds())
+
+            ts1 = int((datetime.strptime(o[1], "%Y-%m-%d %H:%M:%S") -
+                            datetime(1970, 1, 1)).total_seconds())
+
             ttl = ts1 - ts0
             if ttl > 0:
                 val = (pfx, o[2], ttl)
                 results.append(val)
     return results
 
-def output(data, opts):
+def output(data, opts, meta):
     if opts[0] == 'json':
         output_json(data,opts[1])
     elif opts[0] == 'postres':
-        output_postgres(data, opts[1])
+        output_postgres(data, opts[1], meta)
     elif opts[0] == 'mongodb':
-        output_mongodb(data, opts[1])
+        output_mongodb(data, opts[1], meta)
     else:
         output_csv(data,opts[1])
 
@@ -199,23 +212,59 @@ def ouptut_json(data, fout):
             f = sys.stdout
     print (json.dumps(data), file=f)
 
+def output_postgres(data, dbconnstr, meta):
+    insert_origin_ttl = "INSERT INTO t_origin_ttl " \
+                        "(ts_begin, ts_until, maptype, subtype) " \
+                        "VALUES (%s, %s, %s, %s) RETURNING id"
+    insert_origin_ttl_data "INSERT INTO"
+    pass
+
+def output_mongodb(data, dbconnstr, meta):
+    print_error("Not implemented yet!")
+    pass
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--logging',      help='print logging.',          action='store_true')
-    parser.add_argument('-w', '--warning',      help='print warnings.',         action='store_true')
-    parser.add_argument('-v', '--verbose',      help='print everything.',       action='store_true')
+    parser.add_argument('-l', '--logging',
+                        help='print logging.',
+                        action='store_true')
+    parser.add_argument('-w', '--warning',
+                        help='print warnings.',
+                        action='store_true')
+    parser.add_argument('-v', '--verbose',
+                        help='print everything.',
+                        action='store_true')
     imode = parser.add_mutually_exclusive_group(required=True)
-    imode.add_argument('-m', '--mongodb',       help='Read from MongoDB.',      type=str)
-    imode.add_argument('-p', '--postgres',      help='Read from PostgresqlDB.', type=str)
+    imode.add_argument('-m', '--mongodb',
+                        help='Read from MongoDB.',
+                        type=str)
+    imode.add_argument('-p', '--postgres',
+                        help='Read from PostgresqlDB.',
+                        type=str)
     omode = parser.add_mutually_exclusive_group(required=False)
-    omode.add_argument('-c', '--csv',           help='Output data as CSV.',     action='store_true')
-    omode.add_argument('-j', '--json',          help='Output data as JSON.',    action='store_true')
-    omode.add_argument('-d', '--database',      help="Store data into database (same as input).", action='store_true')
-    parser.add_argument('-f', '--file',         help='Write data to file',      default=False)
-    parser.add_argument('-b', '--begin',        help='Begin date (inclusive), format: yyyy-mm-dd', type=valid_date, default="2005-01-01")
-    parser.add_argument('-u', '--until',        help='Until date (exclusive), format: yyyy-mm-dd', type=valid_date, default="2005-01-02")
-    parser.add_argument('-t', '--type',         help='Type of data source (routeviews|riperis|?).', type=str, default="routeviews")
-    parser.add_argument('-s', '--subtype',      help='Subtype of data source (route-view.wide|rrc01|?)', type=str, default="route-views.wide")
+    omode.add_argument('-c', '--csv',
+                        help='Output data as CSV.',
+                        action='store_true')
+    omode.add_argument('-j', '--json',     help='Output data as JSON.',
+                        action='store_true')
+    omode.add_argument('-d', '--database',
+                        help="Store data into database (same as input).",
+                        action='store_true')
+    parser.add_argument('-f', '--file',
+                        help='Write data to file',
+                        default=False)
+    parser.add_argument('-b', '--begin',
+                        help='Begin date (inclusive), format: yyyy-mm-dd',
+                        type=valid_date, default="2005-01-01")
+    parser.add_argument('-u', '--until',
+                        help='Until date (exclusive), format: yyyy-mm-dd',
+                        type=valid_date, default="2005-01-02")
+    parser.add_argument('-t', '--type',
+                        help='Type of data source (show all: ?).',
+                        type=str, default="routeviews")
+    parser.add_argument('-s', '--subtype',
+                        help='Subtype of data source (show all: ?)',
+                        type=str, default="route-views.wide")
     args = vars(parser.parse_args())
 
     # output settings
@@ -243,11 +292,13 @@ def main():
     maptype = args['type']
     subtype = args['subtype']
 
+    meta = (begin, until, maptype, subtype)
+
     if args['postgres']:
-        rres = retrieve_postgres(args['postgres'], begin, until, maptype, subtype)
+        rres = retrieve_postgres(args['postgres'],begin,until,maptype,subtype)
         pres = process_data(rres)
-        out = origin_ttl(pres)
-        output(out, oopts)
+        ores = origin_ttl(pres)
+        output(ores, oopts, meta)
     else:
         print_error('No valid data source found!')
     end_time = datetime.now()
