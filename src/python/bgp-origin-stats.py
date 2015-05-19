@@ -167,6 +167,10 @@ def origin_ttl(data):
 def output(data, opts):
     if opts[0] == 'json':
         output_json(data,opts[1])
+    elif opts[0] == 'postres':
+        output_postgres(data, opts[1])
+    elif opts[0] == 'mongodb':
+        output_mongodb(data, opts[1])
     else:
         output_csv(data,opts[1])
 
@@ -206,6 +210,7 @@ def main():
     omode = parser.add_mutually_exclusive_group(required=False)
     omode.add_argument('-c', '--csv',           help='Output data as CSV.',     action='store_true')
     omode.add_argument('-j', '--json',          help='Output data as JSON.',    action='store_true')
+    omode.add_argument('-d', '--database',      help="Store data into database (same as input).", action='store_true')
     parser.add_argument('-f', '--file',         help='Write data to file',      default=False)
     parser.add_argument('-b', '--begin',        help='Begin date (inclusive), format: yyyy-mm-dd', type=valid_date, default="2005-01-01")
     parser.add_argument('-u', '--until',        help='Until date (exclusive), format: yyyy-mm-dd', type=valid_date, default="2005-01-02")
@@ -227,6 +232,11 @@ def main():
     oopts = ('csv', args['file'])
     if args['json']:
         oopts = ('json', args['file'])
+    elif args['database']:
+        if args['postgres']:
+            oopts = ('postgres', args['postres'])
+        elif args['mongodb']:
+            oopts = ('mongodb', args['mongodb'])
 
     begin = args['begin']
     until = args['until']
