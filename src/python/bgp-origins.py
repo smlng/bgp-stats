@@ -250,14 +250,19 @@ def outputPostgres(data,dbconnstr):
                 prefix_ids[p['prefix']] = pid
             if pid > 0:
                 for a in p['origins']:
-                    f.write("%s\t%s\t%s\n" % (did,pid,a))
+                    if (int(a)>0) and (int(did)>0) and (int(pid)>0):
+                        f.write("%s\t%s\t%s\n" % (did,pid,a))
         f.close()
         try:
-            cur.execute(copy_origins)
-            con.commit()
+            copy_from_stdin = "COPY %s FROM STDIN"
+            with open(t_file, "rb") as f:
+                cur.copy_expert(sql=copy_from_stdin % 't_origins', file=f)
+                con.commit()
+            #cur.execute(copy_origins)
+            #con.commit()
         except Exception, e:
-            print_error("INSERT: %s failed with: %s" %
-                        (copy_origins, e.message))
+            print_error("COPY t_origins FROM file failed with: %s" %
+                        (e.message))
             con.rollback()
 
 def outputStdout(data):
