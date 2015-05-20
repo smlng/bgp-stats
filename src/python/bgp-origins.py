@@ -200,70 +200,70 @@ def outputPostgres(data,dbconnstr):
         cur.execute(insert_dataset, [ts_str,data['maptype'],data['subtype']])
         con.commit()
         did = cur.fetchone()[0]
-        origins = data['origins']
-        prefix_new = set()
-        # find prefixes not in database
-        for p in origins:
-            pid = 0
-            ptmp = p['prefix']
-            if ptmp.endswith('/32'):
-                ptmp = p['prefix'][:-3]
-            if ptmp not in prefix_ids:
-                prefix_new.add(p['prefix'])
-        # write new prefixes to database
-        if len(prefix_new) > 0:
-            print_log("#new prefixes: %s" % (str(len(prefix_new))))
-            pfx_str = '\n'.join(x for x in prefix_new)
-            print(pfx_str)
-            f_pfx = StringIO.StringIO(pfx_str)
+    origins = data['origins']
+    prefix_new = set()
+    # find prefixes not in database
+    for p in origins:
+        pid = 0
+        ptmp = p['prefix']
+        if ptmp.endswith('/32'):
+            ptmp = p['prefix'][:-3]
+        if ptmp not in prefix_ids:
+            prefix_new.add(p['prefix'])
+    # write new prefixes to database
+    if len(prefix_new) > 0:
+        print_log("#new prefixes: %s" % (str(len(prefix_new))))
+        pfx_str = '\n'.join(x for x in prefix_new)
+        print(pfx_str)
+        f_pfx = StringIO.StringIO(pfx_str)
+        try:
+            cur.copy_from(f_pfx, 't_prefixes', columns=('prefix'))
+        except Exception, e:
+            print_error("COPY TO t_prefixes failed with: %s" % (e.message))
+            con.rollback()
+    # update prefix dict
+    try:
+        cur.execute(query_all_prefixes)
+        pfx = cur.fetchall()
+        prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
+    except Exception, e:
+        print_error("QUERY t_prefixes (2) failed with: %s" % (e.message))
+        con.rollback()
+    # insert all origins into database
+    f = open(t_file, "wb")
+    for p in origins:
+        pid = 0
+        ptmp = p['prefix']
+        if ptmp.endswith('/32'):
+            ptmp = p['prefix'][:-3]
+        if ptmp in prefix_ids:
+            pid = prefix_ids[ptmp]
+        else:
             try:
-                cur.copy_from(f_pfx, 't_prefixes', columns=('prefix'))
-            except Exception, e:
-                print_error("COPY TO t_prefixes failed with: %s" % (e.message))
+                cur.execute(query_prefix, [p['prefix']])
+                pid = cur.fetchone()[0]
+            except:
                 con.rollback()
-        # update prefix dict
-        try:
-            cur.execute(query_all_prefixes)
-            pfx = cur.fetchall()
-            prefix_ids = dict((pfx[i][0], pfx[i][1]) for i in range(len(pfx)))
-        except Exception, e:
-            print_error("QUERY t_prefixes (2) failed with: %s" % (e.message))
-            con.rollback()
-        # insert all origins into database
-        f = open(t_file, "wb")
-        for p in origins:
-            pid = 0
-            ptmp = p['prefix']
-            if ptmp.endswith('/32'):
-                ptmp = p['prefix'][:-3]
-            if ptmp in prefix_ids:
-                pid = prefix_ids[ptmp]
-            else:
-                try:
-                    cur.execute(query_prefix, [p['prefix']])
-                    pid = cur.fetchone()[0]
-                except:
-                    con.rollback()
-                    cur.execute(insert_prefix, [p['prefix']])
-                    con.commit()
-                    pid = cur.fetchone()[0]
-                prefix_ids[p['prefix']] = pid
-            if pid > 0:
-                for a in p['origins']:
-                    if (int(a)>0) and (int(did)>0) and (int(pid)>0):
-                        f.write("%s\t%s\t%s\n" % (did,pid,a))
-        f.close()
-        try:
-            copy_from_stdin = "COPY %s FROM STDIN"
-            with open(t_file, "rb") as f:
-                cur.copy_expert(sql=copy_from_stdin % 't_origins', file=f)
+                cur.execute(insert_prefix, [p['prefix']])
                 con.commit()
-            #cur.execute(copy_origins)
-            #con.commit()
-        except Exception, e:
-            print_error("COPY t_origins FROM file failed with: %s" %
-                        (e.message))
-            con.rollback()
+                pid = cur.fetchone()[0]
+            prefix_ids[p['prefix']] = pid
+        if pid > 0:
+            for a in p['origins']:
+                if (int(a)>0) and (int(did)>0):
+                    f.write("%s\t%s\t%s\n" % (did,pid,a))
+    f.close()
+    try:
+        copy_from_stdin = "COPY %s FROM STDIN"
+        with open(t_file, "rb") as f:
+            cur.copy_expert(sql=copy_from_stdin % 't_origins', file=f)
+            con.commit()
+        #cur.execute(copy_origins)
+        #con.commit()
+    except Exception, e:
+        print_error("COPY t_origins FROM file failed with: %s" %
+                    (e.message))
+        con.rollback()
 
 def outputStdout(data):
     print (json.dumps(data, sort_keys=True, indent=2, separators=(',', ': ')))
