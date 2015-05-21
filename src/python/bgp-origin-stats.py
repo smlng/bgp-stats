@@ -216,7 +216,7 @@ def output_postgres(data, dbconnstr, meta):
     insert_origin_ttl = "INSERT INTO t_origin_ttl " \
                         "(ts_begin, ts_until, maptype, subtype) " \
                         "VALUES (%s, %s, %s, %s) RETURNING id"
-    insert_origin_ttl_data "INSERT INTO"
+    insert_origin_ttl_data = "INSERT INTO"
     pass
 
 def output_mongodb(data, dbconnstr, meta):
@@ -234,6 +234,7 @@ def main():
     parser.add_argument('-v', '--verbose',
                         help='print everything.',
                         action='store_true')
+
     imode = parser.add_mutually_exclusive_group(required=True)
     imode.add_argument('-m', '--mongodb',
                         help='Read from MongoDB.',
@@ -241,6 +242,7 @@ def main():
     imode.add_argument('-p', '--postgres',
                         help='Read from PostgresqlDB.',
                         type=str)
+
     omode = parser.add_mutually_exclusive_group(required=False)
     omode.add_argument('-c', '--csv',
                         help='Output data as CSV.',
@@ -250,6 +252,7 @@ def main():
     omode.add_argument('-d', '--database',
                         help="Store data into database (same as input).",
                         action='store_true')
+
     parser.add_argument('-f', '--file',
                         help='Write data to file',
                         default=False)

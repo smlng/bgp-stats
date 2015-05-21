@@ -46,8 +46,10 @@ CREATE TABLE IF NOT EXISTS t_origin_ttl_data (
   origin_ttl_id INT,
   prefix_id     INT,
   asn           INT,
+  ts0           timestamp without time zone NOT NULL,
+  ts1           timestamp without time zone NOT NULL,
   ttl           INT,
-  PRIMARY KEY (origin_ttl_id, prefix_id, asn, ttl),
+  PRIMARY KEY (origin_ttl_id, prefix_id, asn, ts0, ts1, ttl),
   FOREIGN KEY (origin_ttl_id) REFERENCES t_origin_ttl (id),
   FOREIGN KEY (prefix_id) REFERENCES t_prefixes (id)
 );
