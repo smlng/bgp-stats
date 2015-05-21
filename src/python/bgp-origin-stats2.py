@@ -10,6 +10,7 @@ import sys
 import json
 import psycopg2
 
+from time import sleep
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from collections import OrderedDict
@@ -77,9 +78,10 @@ def origin_ttl_postgres(dbconnstr, outqeue,
         cnt = cnt+1
         print_info("RUN %s, processing did: %s, dts: %s" %
                     (cnt, did, datasets[did]))
-        ts_str = datasets[did])
-        ts = (datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S") -
-                    datetime(1970, 1, 1)).total_seconds()
+        ts_str = datasets[did]
+        #ts = (datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S") -
+        #            datetime(1970, 1, 1)).total_seconds()
+        ts = (ts_str - datetime(1970, 1, 1)).total_seconds()
         # get origins of dataset
         try:
             query = query_origins % did
@@ -93,45 +95,63 @@ def origin_ttl_postgres(dbconnstr, outqeue,
             for row in rs:
                 pfx = str(row[0])
                 asn = int(row[1])
-            if pfx not in origins:
-                origins[pfx] = dict()
-            if asn not in origins[pfx]:
-                origins[pfx][asn] = (ts_str,ts_str)
-            else:
-                val = origins[pfx][asn]
-                origins[pfx][asn] = (val[0],ts_str)
+                if pfx not in origins:
+                    origins[pfx] = dict()
+                if asn not in origins[pfx]:
+                    val = (ts_str,ts_str)
+                    origins[pfx][asn] = val
+                else:
+                    old = origins[pfx][asn]
+                    val = (old[0],ts_str)
+                    origins[pfx][asn] = val
             # check prefix origin association, output and delete old ones
+            delorigin = list()
             for pfx in origins:
                 for asn in origins[pfx]:
                     val = origins[pfx][asn]
                     if val[1] != ts_str:
-                        ts0 = (datetime.strptime(val[0], "%Y-%m-%d %H:%M:%S") -
-                                    datetime(1970, 1, 1)).total_seconds()
-                        ts1 = (datetime.strptime(val[1], "%Y-%m-%d %H:%M:%S") -
-                                    datetime(1970, 1, 1)).total_seconds()
-                        ttl = ts1 - ts0
-                        res = (pfx,asn,val[0],val[1],ttl)
-                        outqeue.put(res)
-                        del origins[pfx][asn]
+                        ts0 = (val[0] - datetime(1970, 1, 1)).total_seconds()
+                        ts1 = (val[1] - datetime(1970, 1, 1)).total_seconds()
+                        ttl = int(ts1 - ts0)
+                        if ttl > 0:
+                            res = (pfx,asn,str(val[0]),str(val[1]),ttl)
+                            outqeue.put(res)
+                        dl = (pfx, asn)
+                        delorigin.append(dl)
+            for d in delorigin:
+                pfx = d[0]
+                asn = d[1]
+                del origins[pfx][asn]
+    for pfx in origins:
+        for asn in origins[pfx]:
+            val = origins[pfx][asn]
+            ts0 = (val[0] - datetime(1970, 1, 1)).total_seconds()
+            ts1 = (val[1] - datetime(1970, 1, 1)).total_seconds()
+            ttl = int(ts1 - ts0)
+            if ttl > 0:
+                res = (pfx,asn,str(val[0]),str(val[1]),ttl)
+                outqeue.put(res)
     return True
 
-def outputThread(outqeue, opts):
-    print_log("CALL outputThread")
+def output_thread(outqeue, opts):
+    print_log("CALL output_thread")
     oid = 0
     # init output
     if opts[0] == 'json':
         fout = opts[1]
-        if not fout.lower().endswith('.gz'):
+        f = sys.stdout
+        if fout and (not fout.lower().endswith('.gz')):
             fout = fout+".gz"
-        f = gzip.open(fout, "wb")
+            f = gzip.open(fout, "wb")
         header = ('{'
                   ' "begin" : "%s",'
                   ' "until" : "%s",'
                   ' "maptype" : "%s",'
                   ' "subtype" : "%s",'
-                  ' "origin_ttls" : [\n')
+                  ' "origin_ttls" : [\n' % (opts[2:6]))
         f.write(header)
-    elif opts[0] == 'postres':
+        f.flush()
+    elif opts[0] == 'postgres':
         try:
             con = psycopg2.connect(dbconnstr)
         except Exception, e:
@@ -139,14 +159,15 @@ def outputThread(outqeue, opts):
             print_error("failed with: %s" % ( e.message))
             sys.exit(1)
         cur = con.cursor()
-        sql_insert = ("INSERT INTO t_origin_ttl "
+        insert_origin = ("INSERT INTO t_origin_ttl "
                       "(ts_begin, ts_until, maptype, subtype)"
                       " VALUES %s, %s, %s, %s RETURNING id")
-        sql insert_data = ("INSERT INTO t_origin_ttl_data "
+        insert_data = ("INSERT INTO t_origin_ttl_data "
                            "VALUES %s,%s,%s,%s,%s,%s")
         query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
+        insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
         try:
-            cur.execute(sql_insert, opts[2:6])
+            cur.execute(insert_origin, opts[2:6])
             con.commit()
             oid = cur.fetchone()[0]
         except Exception, e:
@@ -172,21 +193,24 @@ def outputThread(outqeue, opts):
         sys.exit(1)
     else: # csv
         fout = opts[1]
-        if not fout.lower().endswith('.gz'):
+        f = sys.stdout
+        if fout and (not fout.lower().endswith('.gz')):
             fout = fout+".gz"
-        f = gzip.open(fout, "wb")
+            f = gzip.open(fout, "wb")
         header = ("# begin: %s\n"
                   "# until: %s\n"
                   "# maptype: %s\n"
                   "# subtype: %s\n"
                   "Prefix;ASN;ts0;ts1,ttl\n" % (opts[2:6]))
         f.write(header)
+        f.flush()
 
     # output queue data
     first = True
     while True:
         odata = outqeue.get()
         if (odata == 'DONE'):
+            print_log("EXIT output_thread")
             break
         if opts[0] == 'json':
             if not first:
@@ -194,6 +218,7 @@ def outputThread(outqeue, opts):
             else:
                 first = False
             f.write(json.dumps(odata))
+            f.flush()
         elif opts[0] == 'postgres':
             pid = 0
             pfx = odata[0]
@@ -201,76 +226,44 @@ def outputThread(outqeue, opts):
                 pid = prefix_ids[pfx]
             else:
                 try:
-                    
-            try:
-                cur.execute(sql_insert_data,
-                            [oid,pid,odata[1],odata[2],odata[3],
-                                              odata[4],odata[5]])
-                con.commit()
-            except Exception, e:
-                print_error("INSERT t_origin_ttl failed with: %s" % (e.message))
-                con.rollback()
+                    cur.execute(insert_prefix, [pfx])
+                    con.commit()
+                    pid = cur.fetchone()
+                except Exception, e:
+                    print_error("INSERT t_prefixes failed with: %s" % (e.message))
+                    con.rollback()
+
+            if pid > 0:
+                try:
+                    cur.execute(insert_data,
+                                [oid,pid,odata[1],odata[2],odata[3],
+                                                  odata[4],odata[5]])
+                    con.commit()
+                except Exception, e:
+                    print_error("INSERT t_origin_ttl failed with: %s" % (e.message))
+                    con.rollback()
+            else:
+                print_warn("Invalid ID for prefix %s" % (pfx))
+
         elif opts[0] == 'mongodb':
             print_error("WTF? Still not implemented yet! How'd u get here?")
             sys.exit(1)
         else:
             f.write(';'.join(str(x) for x in odata) + "\n")
+            f.flush()
 
     # finalize output
     if opts[0] == 'json':
         footer = (' ]\n}')
         f.write(footer)
-        f.close()
+        if opts[1]:
+            f.close()
     elif opts[0] == 'csv':
-        f.close()
+        f.flush()
+        if opts[1]:
+            f.close()
     # and done
     return True
-
-def output(data, opts, meta):
-    if opts[0] == 'json':
-        output_json(data,opts[1])
-    elif opts[0] == 'postres':
-        output_postgres(data, opts[1], meta)
-    elif opts[0] == 'mongodb':
-        output_mongodb(data, opts[1], meta)
-    else:
-        output_csv(data,opts[1])
-
-def output_csv(data, fout):
-    f = sys.stdout
-    if fout:
-        try:
-            if not fout.lower().endswith('.gz'):
-                fout = fout+".gz"
-            f = gzip.open(fout, "ab")
-        except:
-            print_error("Failed open file %s, using STDOUT instead" % (fout))
-            f = sys.stdout
-    for d in data:
-        print(';'.join(str(x) for x in d), file=f)
-
-def ouptut_json(data, fout):
-    f = sys.stdout
-    if fout:
-        try:
-            if not fout.lower().endswith('.gz'):
-                fout = fout+".gz"
-            f = gzip.open(fout, "ab")
-        except:
-            print_error("Failed open file %s, using STDOUT instead" % (fout))
-            f = sys.stdout
-    print (json.dumps(data), file=f)
-
-def output_postgres(data, dbconnstr, meta):
-    insert_origin_ttl = "INSERT INTO t_origin_ttl " \
-                        "(ts_begin, ts_until, maptype, subtype) " \
-                        "VALUES (%s, %s, %s, %s) RETURNING id"
-    insert_origin_ttl_data = "INSERT INTO"
-    pass
-
-def output_mongodb(data, dbconnstr, meta):
-    print_error("Not implemented yet!")
-    pass
 
 def main():
     parser = argparse.ArgumentParser()
@@ -349,19 +342,21 @@ def main():
 
     # start output process to
     output_queue = Queue()
-    output_p = Process(target=outputThread,
-                       args=(output_queue,oopts))
-    output_p.start()
 
     if args['postgres']:
-        done = origin_ttl_postgres(args['postgres'], output_queue,
-                                   begin, until, maptype, subtype)
+        main_p = Process(target=origin_ttl_postgres,
+                         args=(args['postgres'], output_queue,
+                               begin, until, maptype, subtype))
     else:
         print_error('No valid data source found!')
 
+    main_p.start()
+    output_p = Process(target=output_thread,
+                           args=(output_queue, oopts))
+    output_p.start()
+    main_p.join()
     output_queue.put('DONE')
     output_p.join()
-
     end_time = datetime.now()
     print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
     done_time = end_time - start_time
