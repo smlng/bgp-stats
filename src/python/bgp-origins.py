@@ -214,7 +214,6 @@ def outputPostgres(data,dbconnstr):
     if len(prefix_new) > 0:
         print_log("#new prefixes: %s" % (str(len(prefix_new))))
         pfx_str = '\n'.join(x for x in prefix_new)
-        print(pfx_str)
         f_pfx = StringIO.StringIO(pfx_str)
         try:
             cur.copy_from(f_pfx, 't_prefixes', columns=('prefix'))
