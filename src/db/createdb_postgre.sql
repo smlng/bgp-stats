@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS t_origins (
   FOREIGN KEY (prefix_id) REFERENCES t_prefixes (id)
 );
 
+-- to optimize performance and vacuum process use partition
+-- create partition table per year_month, as follows:
+-- CREATE TABLE IF NOT EXISTS t_origins_yyyy_mm INHERITS (t_origins);
+
 -- -----------------------
 -- table origin ttl
 -- -----------------------
