@@ -10,8 +10,7 @@ for i in $YEARS; do
     (SELECT id FROM t_datasets WHERE date_trunc('month', ts) = '${i}-${j}-01') AS d \
     JOIN t_origins_full AS o ON d.id = o.dataset_id) \
     TO '/tmp/t_origins_part.copy' DELIMITER ';'; " bgp.origins.rv_eqix
-    echo " . import data to temp file"
+    echo " . import data from temp file"
     psql -c "COPY t_origins_${i}_${j} FROM '/tmp/t_origins_part.copy' DELIMITER ';';" bgp.origins.rv_eqix
-    rm /tmp/t_origins_${i}_${j}.copy
   done
 done
