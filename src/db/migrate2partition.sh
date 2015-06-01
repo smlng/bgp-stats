@@ -8,7 +8,7 @@ for i in $YEARS; do
     echo " . export data to temp file"
     psql -c "COPY (SELECT o.dataset_id, o.prefix_id, o.asn FROM \
     (SELECT id FROM t_datasets WHERE date_trunc('month', ts) = '${i}-${j}-01') AS d \
-    LEFT JOIN t_origins_full AS o ON d.id = o.dataset_id) \
+    JOIN t_origins_full AS o ON d.id = o.dataset_id) \
     TO '/tmp/t_origins_part.copy' DELIMITER ';'; " bgp.origins.rv_eqix
     echo " . import data to temp file"
     psql -c "COPY t_origins_${i}_${j} FROM '/tmp/t_origins_part.copy' DELIMITER ';';" bgp.origins.rv_eqix
