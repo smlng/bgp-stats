@@ -32,7 +32,6 @@ re_path_rr = re.compile('.*/(rrc\d\d)/\d\d\d\d.\d\d.*')
 existing_data = list()
 
 prefix_ids = dict()
-t_file = "/tmp/t_origins.copy"
 def print_log(*objs):
     if logging or verbose:
         print("[LOGS] .", *objs, file=sys.stdout)
@@ -174,7 +173,6 @@ def outputPostgres(data,dbconnstr):
     query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
     insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
     insert_origin = "INSERT INTO t_origins VALUES (%s,%s,%s)"
-    copy_origins = "COPY t_origins FROM \'%s\'" % (t_file)
 
     # get all prefixes already in database
     query_all_prefixes = "SELECT prefix, id FROM t_prefixes"
@@ -191,6 +189,19 @@ def outputPostgres(data,dbconnstr):
     did = 0
     ts_str = datetime.fromtimestamp(
                 data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+    ts_year = ts_str.split('-')[0]
+    ts_month =  ts_str.split('-')[1]
+    t_origins_ym = "t_origins_"+ts_year+"_"+ts_month
+    create_table_ym = ( "CREATE TABLE IF NOT EXISTS " +
+                        t_origins_ym + " () " +
+                        "INHERITS (t_origins)")
+    try:
+        cur.execute(create_table_ym)
+        con.commit()
+    except Exception, e:
+        print_error("Error creating table (%s), failed with %s" %
+                    (t_origins_ym, e.message))
+        con.rollback()
     try:
         cur.execute(query_dataset, [ts_str,data['maptype'],data['subtype']])
         did = cur.fetchone()[0]
@@ -228,6 +239,7 @@ def outputPostgres(data,dbconnstr):
     except Exception, e:
         print_error("QUERY t_prefixes (2) failed with: %s" % (e.message))
         con.rollback()
+    t_file = "/tmp/" + t_origins_ym + ".copy"
     # insert all origins into database
     f = open(t_file, "wb")
     for p in origins:
@@ -255,7 +267,7 @@ def outputPostgres(data,dbconnstr):
     try:
         copy_from_stdin = "COPY %s FROM STDIN"
         with open(t_file, "rb") as f:
-            cur.copy_expert(sql=copy_from_stdin % 't_origins', file=f)
+            cur.copy_expert(sql=copy_from_stdin % t_origins_ym, file=f)
             con.commit()
         #cur.execute(copy_origins)
         #con.commit()
