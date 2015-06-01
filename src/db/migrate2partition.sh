@@ -2,6 +2,7 @@ YEARS="2005 2006 2007 2008"
 MONTHS="01 02 03 04 05 06 07 08 09 10 11 12"
 for i in $YEARS; do
   for j in $MONTHS ; do
+    echo " migrate ${i}-${j}"
     echo " . create partition table"
     psql -c "CREATE TABLE IF NOT EXISTS t_origins_${i}_${j} INHERITS (t_origins);"
     echo " . export data to temp file"
