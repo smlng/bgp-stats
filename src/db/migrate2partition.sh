@@ -4,7 +4,7 @@ for i in $YEARS; do
   for j in $MONTHS ; do
     echo " migrate ${i}-${j}"
     echo " . create partition table"
-    psql -c "CREATE TABLE IF NOT EXISTS t_origins_${i}_${j} INHERITS (t_origins);" bgp.origins.rv_eqix
+    psql -c "CREATE TABLE IF NOT EXISTS t_origins_${i}_${j} () INHERITS (t_origins);" bgp.origins.rv_eqix
     echo " . export data to temp file"
     psql -c "COPY (SELECT o.dataset_id, o.prefix_id, o.asn FROM \
     (SELECT id FROM t_datasets WHERE date_trunc('month', ts) = '${i}-${j}-01') AS d \
