@@ -11,7 +11,7 @@ for i in $YEARS; do
     LEFT JOIN t_origins_full AS o ON d.id = o.dataset_id) \
     TO '/tmp/t_origins_part.copy' DELIMITER ';'; " bgp.origins.rv_eqix
     echo " . import data to temp file"
-    psql -c "COPY 't_origins_${i}_${j}' FROM '/tmp/t_origins_part.copy' DELIMITER ';';" bgp.origins.rv_eqix
+    psql -c "COPY t_origins_${i}_${j} FROM '/tmp/t_origins_part.copy' DELIMITER ';';" bgp.origins.rv_eqix
     rm /tmp/t_origins_${i}_${j}.copy
   done
 done
