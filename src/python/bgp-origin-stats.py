@@ -131,30 +131,6 @@ def process_data(data):
         results[pfx].append( origin_ttl )
     return results
 
-def process_data2(data):
-    results = dict()
-    for pfx in data:
-        # ignore timestamp field
-        if pfx == 'ts':
-            continue
-        #print_info("processing prefix: %s" % (pfx))
-        results[pfx] = list()
-        ts0 = data['ts'][0]
-        as0 = set(data[pfx][0])
-        ts1 = ts0
-        as1 = as0
-        for i in range(2,len(data[pfx])):
-            ts1 = data['ts'][i]
-            as1 = set(data[pfx][i])
-            if as1 != as0:
-                origin_ttl = (ts0, ts1, as0)
-                results[pfx].append( origin_ttl )
-                as0 = as1
-                ts0 = ts1
-        origin_ttl = (ts0, ts1, as0)
-        results[pfx].append( origin_ttl )
-    return results
-
 '''
     calculate origin life time, that is duration in [s]econds of
     prefix <-> origin AS association

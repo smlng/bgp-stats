@@ -43,7 +43,7 @@ def valid_date(s):
         raise argparse.ArgumentTypeError(msg)
 
 def origin_ttl_postgres(dbconnstr, outqeue,
-                        mints='2005-01-01', maxts='2005-01-03',
+                        mints='2005-01-01', maxts='2006-01-01',
                         mt='routeviews', st='route-views.wide'):
     print_log("CALL origin_ttl_postgres")
     print_info(dbconnstr)
@@ -352,7 +352,7 @@ def main():
 
     main_p.start()
     output_p = Process(target=output_thread,
-                           args=(output_queue, oopts))
+                       args=(output_queue, oopts))
     output_p.start()
     main_p.join()
     output_queue.put('DONE')
