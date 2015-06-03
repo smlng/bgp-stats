@@ -42,9 +42,7 @@ def valid_date(s):
         msg = "Not a valid date: '{0}'.".format(s)
         raise argparse.ArgumentTypeError(msg)
 
-def origin_ttl_postgres(dbconnstr, outqeue,
-                        mints='2005-01-01', maxts='2006-01-01',
-                        mt='routeviews', st='route-views.wide'):
+def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
     print_log("CALL origin_ttl_postgres")
     print_info(dbconnstr)
     try:
@@ -303,7 +301,7 @@ def main():
                         type=valid_date, default="2005-01-01")
     parser.add_argument('-u', '--until',
                         help='Until date (exclusive), format: yyyy-mm-dd',
-                        type=valid_date, default="2005-01-02")
+                        type=valid_date, default="2005-02-01")
     parser.add_argument('-t', '--type',
                         help='Type of data source (show all: ?).',
                         type=str, default="routeviews")
