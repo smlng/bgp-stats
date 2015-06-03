@@ -307,7 +307,7 @@ def main():
                         type=str, default="routeviews")
     parser.add_argument('-s', '--subtype',
                         help='Subtype of data source (show all: ?)',
-                        type=str, default="route-views.wide")
+                        type=str, default="route-views.eqix")
     args = vars(parser.parse_args())
 
     # output settings
