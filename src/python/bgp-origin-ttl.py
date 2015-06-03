@@ -53,12 +53,12 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
         sys.exit(1)
     cur = con.cursor()
 
-    query_datasets = "SELECT id, ts FROM t_datasets WHERE ts >= '%s' " \
-                     "AND ts < '%s' AND maptype = '%s' " \
-                     "AND subtype = '%s' ORDER BY ts"
-    query_origins = "SELECT p.prefix, o.asn FROM " \
-                    "(SELECT * FROM t_origins WHERE dataset_id = '%s') AS o " \
-                    "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id"
+    query_datasets = ("SELECT id, ts FROM t_datasets WHERE ts >= '%s' "
+                      "AND ts < '%s' AND maptype = '%s' "
+                      "AND subtype = '%s' ORDER BY ts"
+    query_origins = ("SELECT p.prefix, o.asn FROM "
+                     "(SELECT * FROM t_origins WHERE dataset_id = '%s') AS o "
+                     "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
 
     datasets = OrderedDict()
     try:
@@ -69,7 +69,7 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
     except Exception, e:
         print_error("QUERY: %s ; failed with: %s" % (query, e.message))
         con.rollback()
-
+    print_log ("FOUND %s datasets." % str(len(datasets)))
     origins = dict()
     cnt = 0
     for did in datasets:
