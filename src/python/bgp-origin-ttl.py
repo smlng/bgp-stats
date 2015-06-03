@@ -55,7 +55,7 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
 
     query_datasets = ("SELECT id, ts FROM t_datasets WHERE ts >= '%s' "
                       "AND ts < '%s' AND maptype = '%s' "
-                      "AND subtype = '%s' ORDER BY ts"
+                      "AND subtype = '%s' ORDER BY ts")
     query_origins = ("SELECT p.prefix, o.asn FROM "
                      "(SELECT * FROM t_origins WHERE dataset_id = '%s') AS o "
                      "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
