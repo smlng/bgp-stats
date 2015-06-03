@@ -43,7 +43,7 @@ def valid_date(s):
         raise argparse.ArgumentTypeError(msg)
 
 def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
-    print_log("CALL origin_ttl_postgres")
+    print_log("CALL origin_ttl_postgres (%s,%s,%s,%s)" % (mints,maxts,mt,st))
     print_info(dbconnstr)
     try:
         con = psycopg2.connect(dbconnstr)
