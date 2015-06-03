@@ -57,3 +57,26 @@ CREATE TABLE IF NOT EXISTS t_origin_ttl_data (
   FOREIGN KEY (origin_ttl_id) REFERENCES t_origin_ttl (id),
   FOREIGN KEY (prefix_id) REFERENCES t_prefixes (id)
 );
+
+-- -----------------------
+-- table origin diffs
+-- -----------------------
+CREATE TABLE IF NOT EXISTS t_origin_diffs (
+  dataset_id0   INT,
+  dataset_id1   INT,
+  prefix_new    INT,
+  prefix_del    INT,
+  prefix_mod    INT,
+  FOREIGN KEY (dataset_id0) REFERENCES t_datasets (id),
+  FOREIGN KEY (dataset_id1) REFERENCES t_datasets (id),
+  PRIMARY KEY (dataset_id0, dataset_id1)
+);
+
+-- -----------------------
+-- table origin stats
+-- -----------------------
+CREATE TABLE IF NOT EXISTS t_origin_stats (
+  dataset_id    INT,
+  FOREIGN KEY (dataset_id) REFERENCES t_datasets (id),
+  PRIMARY KEY (dataset_id0)
+);
