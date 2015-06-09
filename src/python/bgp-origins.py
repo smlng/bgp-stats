@@ -10,11 +10,10 @@ import sys
 import json
 import psycopg2
 import StringIO
-
+import multiprocessing as mp
 from pymongo import MongoClient
 from bz2 import BZ2File
 from datetime import datetime, timedelta
-from multiprocessing import Process, Queue, cpu_count, current_process
 
 # own imports
 import mrtx
@@ -345,7 +344,7 @@ def main():
     threads   = args['threads']
     workers   = args['numthreads']
     if not workers:
-        workers = cpu_count() / 2
+        workers = mp.cpu_count() / 2
 
     bulk      = args['bulk']
     single    = args['single']
@@ -390,21 +389,22 @@ def main():
         print_log("matching files: %d" % (len(all_files)))
 
         if threads:
-            input_queue = Queue()
-            output_queue = Queue()
+            mgr = mp.Manager()
+            input_queue = mgr.Queue()
+            output_queue = mgr.Queue()
             processes = []
             # fill input queue
             for f in all_files:
                 input_queue.put(f)
             # start workers to calc stats
             for w in xrange(workers):
-                p = Process(target=workerThread,
+                p = mp.Process(target=workerThread,
                             args=(input_queue,output_queue))
                 p.start()
                 processes.append(p)
                 input_queue.put('DONE')
             # start output process to
-            output_p = Process(target=outputThread,
+            output_p = mp.Process(target=outputThread,
                                args=(output_queue,oopts))
             output_p.start()
 
