@@ -160,9 +160,9 @@ def output_thread(outqeue, opts):
         cur = con.cursor()
         insert_origin = ("INSERT INTO t_origin_ttl "
                       "(ts_begin, ts_until, maptype, subtype)"
-                      " VALUES %s, %s, %s, %s RETURNING id")
+                      " VALUES (%s, %s, %s, %s) RETURNING id")
         insert_data = ("INSERT INTO t_origin_ttl_data "
-                           "VALUES %s,%s,%s,%s,%s,%s")
+                           "VALUES (%s,%s,%s,%s,%s,%s)")
         query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
         insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
         try:
