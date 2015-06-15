@@ -332,7 +332,7 @@ def main():
         oopts = ('json', args['file'], begin, until, maptype, subtype)
     elif args['database']:
         if args['postgres']:
-            oopts = ('postgres', args['postres'],
+            oopts = ('postgres', args['postgres'],
                      begin, until, maptype, subtype)
         elif args['mongodb']:
             oopts = ('mongodb', args['mongodb'],
