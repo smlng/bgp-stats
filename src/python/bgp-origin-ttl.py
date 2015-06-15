@@ -48,7 +48,7 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
-        print_error("retrieve_postgres: connecting to database")
+        print_error("origin_ttl_postgres: connecting to database")
         print_error("failed with: %s" % ( e.message))
         sys.exit(1)
     cur = con.cursor()
@@ -150,6 +150,7 @@ def output_thread(outqeue, opts):
         f.write(header)
         f.flush()
     elif opts[0] == 'postgres':
+        dbconnstr = opts[1]
         try:
             con = psycopg2.connect(dbconnstr)
         except Exception, e:
