@@ -166,7 +166,9 @@ def output_thread(outqeue, opts):
         query_prefix = "SELECT id FROM t_prefixes WHERE prefix = %s"
         insert_prefix = "INSERT INTO t_prefixes (prefix) VALUES (%s) RETURNING id"
         try:
-            cur.execute(insert_origin, opts[2:6])
+            cur.execute(insert_origin, [opts[2].strftime('%Y-%m-%d'),
+                                        opts[3].strftime('%Y-%m-%d'),
+                                        opts[4],opts[5]])
             con.commit()
             oid = cur.fetchone()[0]
         except Exception, e:
