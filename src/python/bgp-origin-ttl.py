@@ -239,7 +239,7 @@ def output_thread(outqeue, opts):
             if pid > 0:
                 try:
                     cur.execute(insert_data,
-                                [oid,pid,odata[1],odata[2],odata[3],odata[4])
+                                [oid,pid,odata[1],odata[2],odata[3],odata[4]])
                     con.commit()
                 except Exception, e:
                     print_error("INSERT t_origin_ttl failed with: %s" % (e.message))
