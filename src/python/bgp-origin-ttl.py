@@ -57,7 +57,7 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
                       "AND ts < '%s' AND maptype = '%s' "
                       "AND subtype = '%s' ORDER BY ts")
     query_origins = ("SELECT p.prefix, o.asn FROM "
-                     "(SELECT * FROM t_origins WHERE dataset_id = '%s') AS o "
+                     "(SELECT * FROM %s WHERE dataset_id = '%s') AS o "
                      "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
 
     datasets = OrderedDict()
@@ -77,12 +77,14 @@ def origin_ttl_postgres(dbconnstr, outqeue, mints, maxts, mt, st):
         print_info("RUN %s, processing did: %s, dts: %s" %
                     (cnt, did, datasets[did]))
         ts_str = datasets[did]
+        ym_str = ts_str.strftime("%Y_%m")
+        table = "t_origins_"+ym_str
         #ts = (datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S") -
         #            datetime(1970, 1, 1)).total_seconds()
         ts = (ts_str - datetime(1970, 1, 1)).total_seconds()
         # get origins of dataset
         try:
-            query = query_origins % did
+            query = query_origins % (table, did)
             cur.execute(query)
             rs = cur.fetchall()
         except Exception, e:
@@ -237,8 +239,7 @@ def output_thread(outqeue, opts):
             if pid > 0:
                 try:
                     cur.execute(insert_data,
-                                [oid,pid,odata[1],odata[2],odata[3],
-                                                  odata[4],odata[5]])
+                                [oid,pid,odata[1],odata[2],odata[3],odata[4])
                     con.commit()
                 except Exception, e:
                     print_error("INSERT t_origin_ttl failed with: %s" % (e.message))
