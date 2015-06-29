@@ -123,7 +123,7 @@ def workerThread(inq,outq):
             outq.put(data)
         except Exception, e:
             print_error("%s failed with: %s" %
-                        (current_process().name, e.message))
+                        (mp.current_process().name, e.message))
     return True
 
 def output(data, opts):
@@ -160,7 +160,7 @@ def outputPostgres(data,dbconnstr):
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
-        print_error("%s failed with: %s" % (current_process().name, e.message))
+        print_error("%s failed with: %s" % (mp.current_process().name, e.message))
         print_error("outputPG: connecting to database")
         sys.exit(1)
 
@@ -288,7 +288,7 @@ def outputThread(outq, opts):
             output(odata, opts)
         except Exception, e:
             print_error("%s failed with: %s" %
-                        (current_process().name, e.message))
+                        (mp.current_process().name, e.message))
     return True
 
 def main():
