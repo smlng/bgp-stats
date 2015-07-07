@@ -112,7 +112,7 @@ def get_stat(pt):
     ips = IPSet(pt.prefixes())
     num_ips_all = len(ips)
     num_ips_valid = len(ips - reserved_ipv4)
-    num_ips_bogus = num_ips_all - num_ips-valid
+    num_ips_bogus = num_ips_all - num_ips_valid
     ipspace = num_ips_valid / all_ips_valid
     pfxlen = dict()
     asn = set()
