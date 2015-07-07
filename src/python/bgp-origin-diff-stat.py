@@ -20,12 +20,8 @@ import re
 import sys
 import multiprocessing as mp
 
-from bz2 import BZ2File
 from datetime import datetime, timedelta
-from netaddr import IPSet
-
-# own imports
-import mrtx
+from netaddr import IPSet, IPNetwork
 
 verbose = False
 warning = False
@@ -49,7 +45,7 @@ reserved_ipv4 = IPSet (['0.0.0.0/8',                                        # ho
                         '240.0.0.0/4',                                      # future use (RFC1122)
                         '255.255.255.255/32'                                # limited broadcast
                     ])
-all_ips_valid = len(IPSet(0.0.0.0/0) - reserved_ipv4)
+all_ips_valid = len(IPSet(['0.0.0.0/0']) - reserved_ipv4)
 
 ## helper function ##
 
