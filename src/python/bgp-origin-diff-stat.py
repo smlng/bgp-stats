@@ -1,5 +1,15 @@
 #!/usr/bin/python
 
+#### workflow ####
+# 1. get all datatsets within date range
+# 2. put dataset pairs into input_queue
+# 3. start worker threads with input_queue
+# 3a. load dataset into prefix trees pt0 and pt1
+# 3.b calc stats for prefix trees pt0 and pt1
+# 3.c calc diffs for prefix treees (pt0,pt1)
+# 4. start output thread and write results back to database
+##################s
+
 from __future__ import print_function
 
 import argparse
@@ -39,7 +49,7 @@ reserved_ipv4 = IPSet (['0.0.0.0/8',                                        # ho
                         '240.0.0.0/4',                                      # future use (RFC1122)
                         '255.255.255.255/32'                                # limited broadcast
                     ])
-num_ips_valid_all = len(IPSet(0.0.0.0/0) - reserved_ipv4)
+all_ips_valid = len(IPSet(0.0.0.0/0) - reserved_ipv4)
 
 ## helper function ##
 
@@ -73,6 +83,13 @@ def get_tree(dbconnstr, did, ts_str):
     ym_str = ts_str.strftime("%Y_%m")
     table = "t_origins_"+ym_str
     ptree = radix.Radix()
+    try:
+        con = psycopg2.connect(dbconnstr)
+    except Exception, e:
+        print_error("get_tree: connecting to database")
+        print_error("failed with: %s" % ( e.message))
+        sys.exit(1)
+    cur = con.cursor()
     # get origins of dataset
     try:
         query = query_origins % (table, did)
@@ -95,48 +112,71 @@ def get_tree(dbconnstr, did, ts_str):
 def get_stat(pt):
     print_log("CALL get_stat")
     ips = IPSet(pt.prefixes())
+    num_ips_all = len(ips)
     num_ips_valid = len(ips - reserved_ipv4)
     num_ips_bogus = num_ips_all - num_ips-valid
+    ipspace = num_ips_valid / all_ips_valid
+    pfxlen = dict()
+    asn = set()
+    num_pfx_moas = 0
+    # eval prefix tree
+    for p in ptree:
+        pl = int(p.prefixlen)
+        for a in p.data['asn']:
+            asn.add(a)
+        if len(set(p.data['asn'])) > 1:
+            num_pfx_moas += 1
+        if pl not in pfxlen:
+            pfxlen[pl] = list()
+        pfxlen[pl].append(p.prefix)
+    num_asn = len(asn)
+    num_pfx = len(ptree.prefixes())
+    # prefix and ip results
+    pl_dict = dict()
+    for i in range(32): # init with all 0
+        pl_dict[i+1] = 0
+    for pl in pfxlen:
+        pl_dict[pl] = len(pfxlen[pl])
+    str_pfx_len = str(pl_dict[0])
+    for i in range(1,32):
+        str_pfx_len = str_pfx_len + "," + str(pl_dict[i])
+    ret = [num_asn,num_ips_valid, num_ips_bogus, ipspace,
+           num_pfx, num_pfx_moas, str_pfx_len]
+    return ret
 
 def get_diff(pt0, pt1):
     print_log("CALL get_diff")
-    ips_agg = IPSet()
-    ips_deagg = IPSet()
-    pt0IPs = IPSet(pt0.prefixes()) - reserved_ipv4
-    pt1IPs = IPSet(pt1.prefixes()) - reserved_ipv4
     num_ips_new = len(pt1IPs - pt0IPs)
     num_ips_del = len(pt0IPs - pt1IPs)
     num_pfx_new = len(set(pt1.prefixes()) - set(pt0.prefixes()))
     num_pfx_del = len(set(pt0.prefixes()) - set(pt1.prefixes()))
+    num_pfx_mod = 0
+    asn0 = set()
+    asn1 = set()
     for pn0 in pt0:
-        ipn0 = IPNetwork(pn0.prefix)
-        if ipn0 not in reserved_ipv4:
-            pn1 = pt1.search_best(pn0.network)
-            if (pn1 != None) and (pn0.prefix != pn1.prefix):
-                print_info("pn0: %s, pn1: %s" % (pn0.prefix, pn1.prefix))
-                diff = pn0.prefixlen - pn1.prefixlen
-                if diff > 0: # aggregate
-                    try:
-                        ips_agg = ips_agg | IPSet([pn0.prefix])
-                    except:
-                        print_error("Failed to add prefix (%s) to ips_agg!" % (pn0.prefix))
-                if diff < 0: # deaggregate
-                    try:
-                        ips_deagg = ips_deagg | IPSet([pn0.prefix])
-                    except:
-                        print_error("Failed to add prefix (%s) to ips_deagg!" % (pn0.prefix))
-
+        for a in pn0.data['asn']:
+            asn0.add(a)
+        pn1 = pt1.search_exact(pn0.network)
+        if (pn1 != None):
+            asn_diff = set(pn0.data['asn']) ^ set(pn1.data['asn'])
+            if len(asn_diff) > 0:
+                num_pfx_mod += 1
+    for pn1 in pt1:
+        for a in pn1.data['asn']:
+            asn1.add(a)
+    num_asn_new = len(asn1 - asn0)
+    num_asn_del = len(asn0 - asn1)
     num_ips_agg = len(ips_agg)
     num_ips_deagg = len(ips_deagg)
     num_ips_changed = num_ips_agg + num_ips_deagg
-    ret = [len(pt0IPs), len(pt1IPs), num_ips_new, num_ips_del,
-           num_ips_changed, num_ips_agg, num_ips_deagg]
+    ret = [num_asn_new, nums_asn_del, num_ips_new, num_ips_del,
+           num_pfx_new, num_pfx_del, num_pfx_mod]
     return ret
 
-def worker(dbconnstr, inqueue, outqueue):
+def worker(dbconnstr, queue):
     print_log ("START get_diff")
 
-    for data in iter(inqueue.get, 'DONE'):
+    for data in iter(queue.get, 'DONE'):
         try:
             did0 = data[0]
             ts0  = data[1]
@@ -147,14 +187,21 @@ def worker(dbconnstr, inqueue, outqueue):
             stat0 = get_stat(ptree0)
             stat1 = get_stat(ptree1)
             diffs = get_diff(ptree0, ptree1)
-            output = (did0, did1, stat0, stat1, diffs)
-            outqueue.put(output)
+            odata = (did0, did1, stat0, stat1, diffs)
+            output(dbconnstr, odata)
         except Exception, e:
             print_error("%s failed with: %s" %
                         (mp.current_process().name, e.message))
     return True
 
-def output(dbconnstr, queue):
+def output(dbconnstr, odata):
+    try:
+        con = psycopg2.connect(dbconnstr)
+    except Exception, e:
+        print_error("output: connecting to database")
+        print_error("failed with: %s" % ( e.message))
+        sys.exit(1)
+    cur = con.cursor()
     pass
 
 def main():
@@ -209,9 +256,7 @@ def main():
         workers = mp.cpu_count() / 2
 
     # prepare some vars
-    mgr = mp.Manager()
-    input_queue = mgr.Queue()
-    output_queue = mgr.Queue()
+    input_queue = mp.Queue()
     # get all matching datasets
     try:
         con = psycopg2.connect(dbconnstr)
@@ -244,20 +289,13 @@ def main():
     # start workers
     for w in xrange(workers):
         p = mp.Process(target=worker,
-                       args=(dbconnstr,input_queue,output_queue))
+                       args=(dbconnstr,input_queue))
         p.start()
         processes.append(p)
         input_queue.put('DONE')
-    # start output process to
-    output_p = mp.Process(target=output,
-                          args=(dbconnstr,output_queue))
-    output_p.start()
 
     for p in processes:
         p.join()
-
-    output_queue.put('DONE')
-    output_p.join()
 
     end_time = datetime.now()
     print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))

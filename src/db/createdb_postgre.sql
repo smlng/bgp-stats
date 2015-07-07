@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS t_origin_ttl_data (
 CREATE TABLE IF NOT EXISTS t_origin_diffs (
   dataset_id0   INT,
   dataset_id1   INT,
+  asn_new       INT,
+  asn_del       INT,
+  ips_new       INT,
+  ips_del       INT,
   prefix_new    INT,
   prefix_del    INT,
   prefix_mod    INT,
@@ -77,6 +81,13 @@ CREATE TABLE IF NOT EXISTS t_origin_diffs (
 -- -----------------------
 CREATE TABLE IF NOT EXISTS t_origin_stats (
   dataset_id    INT,
+  asnums        INT,
+  ips_valid     INT,
+  ips_bogus     INT,
+  ipspace       REAL,
+  prefixes      INT,
+  prefix_moas   INT,
+  prefix_len    TEXT,
   FOREIGN KEY (dataset_id) REFERENCES t_datasets (id),
-  PRIMARY KEY (dataset_id0)
+  PRIMARY KEY (dataset_id)
 );
