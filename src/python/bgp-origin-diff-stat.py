@@ -15,6 +15,7 @@ from __future__ import print_function
 import argparse
 import gzip
 import os
+import psycopg2
 import radix
 import re
 import sys
@@ -198,7 +199,17 @@ def output(dbconnstr, odata):
         print_error("failed with: %s" % ( e.message))
         sys.exit(1)
     cur = con.cursor()
-    pass
+    insert_stats = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+    insert_diffs = "INSERT INTO t_origin_diffs VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+    stat0 = list(odata[0])
+    stat0.extend(odata[2])
+    stat1 = list(odata[1])
+    stat1.extend(odata[3])
+    diffs = list(odata[0],odata[1])
+    diffs.extend(odata[4])
+    print_info ("STAT0: " + ';'.join( str(x) for x in stat0))
+    print_info ("STAT1: " + ';'.join( str(x) for x in stat1))
+    print_info ("DIFFS: " + ';'.join( str(x) for x in diffs))
 
 def main():
     parser = argparse.ArgumentParser()
