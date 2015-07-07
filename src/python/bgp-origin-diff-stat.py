@@ -172,7 +172,7 @@ def get_diff(pt0, pt1):
     return ret
 
 def worker(dbconnstr, queue):
-    print_log ("START get_diff")
+    print_log ("START worker")
 
     for data in iter(queue.get, 'DONE'):
         try:
@@ -295,6 +295,7 @@ def main():
         input_queue.put(data)
 
     # start workers
+    processes = []
     for w in xrange(workers):
         p = mp.Process(target=worker,
                        args=(dbconnstr,input_queue))
