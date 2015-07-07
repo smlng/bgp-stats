@@ -278,8 +278,8 @@ def main():
                       "AND ts < '%s' AND maptype = '%s' "
                       "AND subtype = '%s' ORDER BY ts")
     datasets = OrderedDict()
+    query = query_datasets % (begin,until,maptype,subtype)
     try:
-        query = query_datasets % (mints,maxts,mt,st)
         cur.execute(query)
         rs = cur.fetchall()
         datasets = OrderedDict((row[0], row[1]) for row in rs)
