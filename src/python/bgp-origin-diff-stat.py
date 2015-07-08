@@ -51,6 +51,14 @@ all_ips_valid = len(IPSet(['0.0.0.0/0']) - reserved_ipv4)
 
 ## helper function ##
 
+def prefixlen (prefix):
+    try:
+        network, length = prefix.split('/')
+    except:
+        return 32
+    else:
+        return int(length)
+
 def print_log(*objs):
     if logging or verbose:
         print("[LOGS] .", *objs, file=sys.stdout)
@@ -81,7 +89,7 @@ def get_tree(dbconnstr, did, ts_str):
                      "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
     ym_str = ts_str.strftime("%Y_%m")
     table = "t_origins_"+ym_str
-    ptree = radix.Radix()
+    ptree = dict()
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
@@ -91,6 +99,7 @@ def get_tree(dbconnstr, did, ts_str):
     cur = con.cursor()
     # get origins of dataset
     try:
+        print_info("execute query")
         query = query_origins % (table, did)
         cur.execute(query)
         rs = cur.fetchall()
@@ -98,19 +107,20 @@ def get_tree(dbconnstr, did, ts_str):
         print_error("QUERY: %s ; failed with: %s" % (query, e.message))
         con.rollback()
     else:
+        print_info("process response")
         # update timestamps of prefix origin association
         for row in rs:
             prefix = str(row[0])
             origin = int(row[1])
             if prefix not in ptree:
-                pnode = ptree.add(prefix)
-                pnode.data['asn'] = list()
-            pnode.data['asn'].append(origin)
+                ptree[prefix] = list()
+            if origin not in ptree[prefix]:
+                ptree[prefix].append(origin)
     return ptree
 
 def get_stat(pt):
     print_log("CALL get_stat")
-    ips = IPSet(pt.prefixes())
+    ips = IPSet(pt.keys())
     num_ips_all = len(ips)
     num_ips_valid = len(ips - reserved_ipv4)
     num_ips_bogus = num_ips_all - num_ips_valid
@@ -120,16 +130,16 @@ def get_stat(pt):
     num_pfx_moas = 0
     # eval prefix tree
     for p in pt:
-        pl = int(p.prefixlen)
-        for a in p.data['asn']:
+        pl = prefixlen(p)
+        for a in pt[p]:
             asn.add(a)
-        if len(set(p.data['asn'])) > 1:
+        if len(pt[p]) > 1:
             num_pfx_moas += 1
         if pl not in pfxlen:
             pfxlen[pl] = list()
-        pfxlen[pl].append(p.prefix)
+        pfxlen[pl].append(p)
     num_asn = len(asn)
-    num_pfx = len(pt.prefixes())
+    num_pfx = len(pt.keys())
     # prefix and ip results
     pl_dict = dict()
     for i in range(32): # init with all 0
@@ -145,29 +155,27 @@ def get_stat(pt):
 
 def get_diff(pt0, pt1):
     print_log("CALL get_diff")
+    pt0IPs = IPSet(pt0.keys())
+    pt1IPs = IPSet(pt1.keys())
     num_ips_new = len(pt1IPs - pt0IPs)
     num_ips_del = len(pt0IPs - pt1IPs)
-    num_pfx_new = len(set(pt1.prefixes()) - set(pt0.prefixes()))
-    num_pfx_del = len(set(pt0.prefixes()) - set(pt1.prefixes()))
+    num_pfx_new = len(set(pt1.keys()) - set(pt0.keys()))
+    num_pfx_del = len(set(pt0.keys()) - set(pt1.keys()))
     num_pfx_mod = 0
     asn0 = set()
     asn1 = set()
     for pn0 in pt0:
-        for a in pn0.data['asn']:
+        for a in pt0[pn0]:
             asn0.add(a)
-        pn1 = pt1.search_exact(pn0.network)
-        if (pn1 != None):
-            asn_diff = set(pn0.data['asn']) ^ set(pn1.data['asn'])
+        if pn0 in pt1:
+            asn_diff = set(pt0[pn0]) ^ set(pt1[pn0])
             if len(asn_diff) > 0:
                 num_pfx_mod += 1
     for pn1 in pt1:
-        for a in pn1.data['asn']:
+        for a in pt1[pn1]:
             asn1.add(a)
     num_asn_new = len(asn1 - asn0)
     num_asn_del = len(asn0 - asn1)
-    num_ips_agg = len(ips_agg)
-    num_ips_deagg = len(ips_deagg)
-    num_ips_changed = num_ips_agg + num_ips_deagg
     ret = [num_asn_new, nums_asn_del, num_ips_new, num_ips_del,
            num_pfx_new, num_pfx_del, num_pfx_mod]
     return ret
