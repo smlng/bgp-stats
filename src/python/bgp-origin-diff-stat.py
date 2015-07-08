@@ -82,8 +82,8 @@ def valid_date(s):
         raise argparse.ArgumentTypeError(msg)
 
 ## public and thread funtions ##
-def get_tree(dbconnstr, did, ts_str):
-    print_log ("CALL get_tree (%s, %s, %s)" % (dbconnstr, did, ts_str))
+def get_origins(dbconnstr, did, ts_str):
+    print_log ("CALL get_origins (%s, %s, %s)" % (dbconnstr, did, ts_str))
     query_origins = ("SELECT p.prefix, o.asn FROM "
                      "(SELECT * FROM %s WHERE dataset_id = '%s') AS o "
                      "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
@@ -93,13 +93,13 @@ def get_tree(dbconnstr, did, ts_str):
     try:
         con = psycopg2.connect(dbconnstr)
     except Exception, e:
-        print_error("get_tree: connecting to database")
+        print_error("get_origins: connecting to database")
         print_error("failed with: %s" % ( e.message))
         sys.exit(1)
     cur = con.cursor()
     # get origins of dataset
     try:
-        print_info("execute query")
+        print_info("get_origins: execute query")
         query = query_origins % (table, did)
         cur.execute(query)
         rs = cur.fetchall()
@@ -107,7 +107,7 @@ def get_tree(dbconnstr, did, ts_str):
         print_error("QUERY: %s ; failed with: %s" % (query, e.message))
         con.rollback()
     else:
-        print_info("process response")
+        print_info("get_origins: process response")
         # update timestamps of prefix origin association
         for row in rs:
             prefix = str(row[0])
@@ -189,13 +189,18 @@ def worker(dbconnstr, queue):
             ts0  = data[1]
             did1 = data[2]
             ts1  = data[3]
-            ptree0 = get_tree(dbconnstr, did0, ts0)
-            ptree1 = get_tree(dbconnstr, did1, ts1)
+            ptree0 = get_origins(dbconnstr, did0, ts0)
+            ptree1 = get_origins(dbconnstr, did1, ts1)
+            print_info ("%s origins done ..." % (mp.current_process().name))
             stat0 = get_stat(ptree0)
+            print_info ("%s stat0 done ..." % (mp.current_process().name))
             stat1 = get_stat(ptree1)
+            print_info ("%s stat1 done ..." % (mp.current_process().name))
             diffs = get_diff(ptree0, ptree1)
+            print_info ("%s diffs done ..." % (mp.current_process().name))
             odata = (did0, did1, stat0, stat1, diffs)
             output(dbconnstr, odata)
+            print_info ("%s output done ..." % (mp.current_process().name))
         except Exception, e:
             print_error("%s failed with: %s" %
                         (mp.current_process().name, e.message))
