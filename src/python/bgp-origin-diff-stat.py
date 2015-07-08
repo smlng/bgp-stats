@@ -75,6 +75,7 @@ def valid_date(s):
 
 ## public and thread funtions ##
 def get_tree(dbconnstr, did, ts_str):
+    print_log ("CALL get_tree (%s, %s, %s)" % (dbconnstr, did, ts_str))
     query_origins = ("SELECT p.prefix, o.asn FROM "
                      "(SELECT * FROM %s WHERE dataset_id = '%s') AS o "
                      "LEFT JOIN t_prefixes AS p ON o.prefix_id = p.id")
@@ -118,7 +119,7 @@ def get_stat(pt):
     asn = set()
     num_pfx_moas = 0
     # eval prefix tree
-    for p in ptree:
+    for p in pt:
         pl = int(p.prefixlen)
         for a in p.data['asn']:
             asn.add(a)
@@ -128,7 +129,7 @@ def get_stat(pt):
             pfxlen[pl] = list()
         pfxlen[pl].append(p.prefix)
     num_asn = len(asn)
-    num_pfx = len(ptree.prefixes())
+    num_pfx = len(pt.prefixes())
     # prefix and ip results
     pl_dict = dict()
     for i in range(32): # init with all 0
