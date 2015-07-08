@@ -297,13 +297,14 @@ def main():
         con.rollback()
     print_log ("FOUND %s datasets." % str(len(datasets)))
     # fill input_queue
+    print_info ("fill input queue")
     for i in range(0, len(datasets)-1):
         d0 = datasets.items()[i]
         d1 = datasets.items()[i+1]
         data = (d0[0],d0[1],d1[0],d1[1])
         input_queue.put(data)
-
     # start workers
+    print_info("start workers")
     processes = []
     for w in xrange(workers):
         p = mp.Process(target=worker,
@@ -311,7 +312,7 @@ def main():
         p.start()
         processes.append(p)
         input_queue.put('DONE')
-
+    print_info("wait for workers")
     for p in processes:
         p.join()
 
