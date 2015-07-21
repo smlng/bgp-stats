@@ -88,7 +88,7 @@ Both version 1 & 2 TABLE_DUMPS are supported, as well as 32bit ASNs. However, th
             results[mrt.prefix].append(origin)
         except:
             print("  Error parsing prefix '%s'" % (mrt.prefix), file=stderr)  # to aid debugging
-            raise
+            #raise
 
         n += 1
         if debug_break_after and n > debug_break_after:
@@ -213,7 +213,7 @@ class MrtRecord:
             # among them, T2_PEER_INDEX_TABLE provides BGP ID of the collector, and list of peers; we don't use it
             if mrt.sub_type == MrtRecord.T2_RIB_IPV4_UNICAST:
                 # buf holds BGP message of mrt.data_len bytes
-                mrt.table = MrtTableDump2(buf, mrt.sub_type) 
+                mrt.table = MrtTableDump2(buf, mrt.sub_type)
         else:
             raise Exception("MrtTableHeader received an unknown MRT table dump TYPE <%d>!" % mrt.type)
         return mrt
