@@ -180,11 +180,12 @@ def output(dbconnstr, odata):
         print_error("failed with: %s" % ( e.message))
         sys.exit(1)
     cur = con.cursor()
-    insert_stat = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+    insert_stat = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,'%s')"
+    sql_insert = insert_stat % tuple(odata)
     try:
         print_info("output: insert stats")
-        sql_insert = insert_stat % (odata)
         cur.execute(sql_insert)
+        con.commit()
     except Exception, e:
         print_error("INSERT: %s ; failed with: %s" % (sql_insert, e.message))
         con.rollback()
