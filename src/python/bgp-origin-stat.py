@@ -183,10 +183,10 @@ def output(dbconnstr, odata):
     insert_stat = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
     try:
         print_info("output: insert stats")
-        insert = insert_stat % (odata)
-        cur.execute(insert)
+        sql_insert = insert_stat % (odata)
+        cur.execute(sql_insert)
     except Exception, e:
-        print_error("INSERT: %s ; failed with: %s" % (insert, e.message))
+        print_error("INSERT: %s ; failed with: %s" % (sql_insert, e.message))
         con.rollback()
     else:
         print_info ("STAT: " + ';'.join( str(x) for x in odata))
