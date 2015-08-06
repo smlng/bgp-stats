@@ -162,7 +162,9 @@ def worker(dbconnstr, queue):
             print_info ("%s get_origins done ..." % (mp.current_process().name))
             stat = get_stat(origins)
             print_info ("%s get_stat done ..." % (mp.current_process().name))
-            odata = (did, stat)
+            odata = list()
+            odata.append(did)
+            odata.extend(stat)
             output(dbconnstr, odata)
             print_info ("%s output done ..." % (mp.current_process().name))
         except Exception, e:
@@ -179,9 +181,7 @@ def output(dbconnstr, odata):
         sys.exit(1)
     cur = con.cursor()
     insert_stat = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-    stat = list(odata[0])
-    stat.extend(odata[1])
-    print_info ("STAT: " + ';'.join( str(x) for x in stat0))
+    print_info ("STAT: " + ';'.join( str(x) for x in odata))
 
 def main():
     parser = argparse.ArgumentParser()
