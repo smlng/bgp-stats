@@ -16,7 +16,6 @@ SELECT p.prefix, o.cnt FROM ((SELECT prefix_id pid, COUNT(asn) cnt FROM t_origin
 -- get number of prefixes with MOAS for certain dataset_id
 SELECT COUNT(*) FROM ((SELECT prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id = 1 GROUP BY prefix_id ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id) WHERE o.cnt > 1;
 
-
 -- get number of prefixes with MOAS for datasets with id < N order by timestamp
 SELECT d.ts ts, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins WHERE dataset_id < 5 GROUP BY did, pid ORDER BY cnt DESC) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id LEFT JOIN t_datasets AS d ON o.did = d.id) WHERE o.cnt > 1 GROUP BY ts ORDER BY ts;
 
@@ -28,3 +27,21 @@ SELECT o.did, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) c
 
 --
 SELECT d.ts, d.subtype, COUNT(*) FROM ((SELECT dataset_id did, prefix_id pid, COUNT(asn) cnt FROM t_origins GROUP BY did, pid) AS o LEFT JOIN t_prefixes AS p ON o.pid = p.id LEFT JOIN t_datasets AS d ON o.did = d.id) WHERE cnt > 1 GROUP BY ts, subtype ORDER BY ts;
+
+-- cound datasets per month in distinct year
+SELECT EXTRACT(month from ts) m, count(*) FROM t_datasets WHERE EXTRACT(year from ts) = '2008' GROUP BY m ORDER BY m;
+
+-- distribution of ttl in days
+SELECT ttl_days, count(ttl_days) FROM (SELECT ceil(ttl/3600/24) ttl_days  from t_origin_ttl_data) AS tmp GROUP BY ttl_days order by ttl_days asc;
+
+--
+SELECT date(ts1) ts, count(date(ts1)) cnt FROM t_origin_ttl_data group by ts order by ts desc;
+
+-- number of distinct prefixes revoked per day
+SELECT ts, count(ts) FROM (SELECT DISTINCT ON (ts, prefix_id) date(ts1) ts, prefix_id pid FROM t_origin_ttl_data) AS t1 group by ts order by ts;
+
+-- number of distinct prefixes announced per day
+SELECT ts, count(ts) FROM (SELECT DISTINCT ON (ts, prefix_id) date(ts0) ts, prefix_id pid FROM t_origin_ttl_data) AS t1 group by ts order by ts;
+
+--
+SELECT prefix, avg_ttl, max_ttl, cnt_ttl FROM (SELECT ROUND(AVG(ttl/3600/24)) avg_ttl, MAX(ttl/3600/24) max_ttl, COUNT(ttl) cnt_ttl, prefix_id FROM t_origin_ttl_data WHERE DATE(ts1) < '2014-12-31' GROUP BY prefix_id) AS t LEFT JOIN t_prefixes p Oid = t.prefix_id ORDER BY cnt_ttl DESC, max_ttl DESC;
