@@ -181,7 +181,16 @@ def output(dbconnstr, odata):
         sys.exit(1)
     cur = con.cursor()
     insert_stat = "INSERT INTO t_origin_stats VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-    print_info ("STAT: " + ';'.join( str(x) for x in odata))
+    try:
+        print_info("output: insert stats")
+        insert = insert_stat % (odata)
+        cur.execute(insert)
+    except Exception, e:
+        print_error("INSERT: %s ; failed with: %s" % (insert, e.message))
+        con.rollback()
+    else:
+        print_info ("STAT: " + ';'.join( str(x) for x in odata))
+    return True
 
 def main():
     parser = argparse.ArgumentParser()
