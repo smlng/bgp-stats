@@ -124,7 +124,7 @@ def get_stat(pt):
     num_ips_all = len(ips)
     num_ips_valid = len(ips - reserved_ipv4)
     num_ips_bogus = num_ips_all - num_ips_valid
-    ipspace = num_ips_valid / all_ips_valid
+    ipspace = float(num_ips_valid) / all_ips_valid
     pfxlen = dict()
     asn = set()
     num_pfx_moas = 0
