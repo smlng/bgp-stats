@@ -146,7 +146,7 @@ def get_stat(pt):
         pl_dict[i+1] = 0
     for pl in pfxlen:
         pl_dict[pl] = len(pfxlen[pl])
-    str_pfx_len = ','.join(str(pl_dict[x]) for x in pl_dict)
+    str_pfx_len = ','.join(str(pl_dict[i+1]) for i in range(32))
     ret = [num_asn,num_ips_valid, num_ips_bogus, ipspace,
            num_pfx, num_pfx_moas, str_pfx_len]
     return ret
