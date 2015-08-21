@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS t_origin_diffs (
 CREATE TABLE IF NOT EXISTS t_origin_stats (
   dataset_id    INT,
   asnums        INT,
-  ips_valid     INT,
+  ips_valid     BIGINT,
   ips_bogus     INT,
   ipspace       REAL,
   prefixes      INT,
