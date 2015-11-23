@@ -13,7 +13,7 @@ import StringIO
 import multiprocessing as mp
 from bz2 import BZ2File
 from datetime import datetime, timedelta
-
+#from pyasn import mrtx
 # own imports
 import mrtx
 
