@@ -210,9 +210,8 @@ class MrtRecord:
         buf = f.read(mrt.data_len)  # read table-data
         assert len(buf) == mrt.data_len
         if mrt.type == MrtRecord.TYPE_TABLE_DUMP:
-            if mrt.sub_type == MrtRecord.T1_AFI_IPv4:
-            #assert mrt.sub_type in (MrtRecord.T1_AFI_IPv4, MrtRecord.T1_AFI_IPv6)  
-                mrt.table = MrtTableDump1(buf, mrt.sub_type)
+            assert mrt.sub_type in (MrtRecord.T1_AFI_IPv4, MrtRecord.T1_AFI_IPv6)  
+            mrt.table = MrtTableDump1(buf, mrt.sub_type)
         elif mrt.type == MrtRecord.TYPE_TABLE_DUMP_V2:
             # only allow these types
             # T2_PEER_INDEX_TABLE provides BGP ID of the collector and list of peers; we don't use it
@@ -254,11 +253,22 @@ class MrtTableDump1:
     """MrtTableDump1: class to hold and parse MRT Table_Dumps records"""
 
     def __init__(self, buf, sub_type1):
-        # TODO-IPv6: to implement. possibly need "QQ" in the unpack (16B prefix), and inet_ntop() after
-        assert sub_type1 == MrtRecord.T1_AFI_IPv4  
-        self.view, self.seq, prefix, mask, self.status, self.orig_ts, self.peer_ip, self.peer_as, self.attr_len\
-            = unpack('>HHIBBIIHH', buf[:22])
-        self.s_prefix = "%s/%d" % (inet_ntoa(pack('>I', prefix)), mask)
+
+        assert sub_type1 in ( MrtRecord.T1_AFI_IPv4, MrtRecord.T1_AFI_IPv6 )
+        if sub_type1 == MrtRecord.T1_AFI_IPv4: 
+            self.view, self.seq, prefix, mask, self.status, self.orig_ts, self.peer_ip, self.peer_as, self.attr_len\
+                = unpack('>HHIBBIIHH', buf[:22])
+            self.s_prefix = "%s/%d" % (inet_ntoa(pack('>I', prefix)), mask)
+            self._buf_offset = 22
+        elif sub_type1 == MrtRecord.T1_AFI_IPv6:
+            self.view, self.seq = unpack('>HH', buf[:4])
+            prefix = inet_ntop(AF_INET6, buf[4:20])
+            mask, self.status, self.orig_ts = unpack('>BBI', buf[20:26])
+            self.s_prefix = "%s/%d" % (prefix,mask)
+            #print ("%s/%d" % (prefix,mask))
+            self.peer_ip = "%s" % inet_ntop(AF_INET6, buf[26:42]) 
+            self.peer_as, self.attr_len = unpack('>HH', buf[42:46])
+            self._buf_offset = 46
         assert self.view == 0  # view is normally 0; its intended for when an implementation has multiple RIB views
         self._attrs = []
         self._data_buf = buf
@@ -267,7 +277,7 @@ class MrtTableDump1:
     def attrs(self):
         # The BGP Attribute field contains the BGP attribute information for the RIB entry. Parse on demand for perf.
         if not self._attrs:
-            buf = self._data_buf[22:]
+            buf = self._data_buf[self._buf_offset:]
             j = self.attr_len
             while j > 0:
                 a = BgpAttribute(buf, is32=False)
