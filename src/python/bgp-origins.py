@@ -11,7 +11,6 @@ import json
 import psycopg2
 import StringIO
 import multiprocessing as mp
-from pymongo import MongoClient
 from bz2 import BZ2File
 from datetime import datetime, timedelta
 
@@ -131,8 +130,6 @@ def output(data, opts):
         outputJSON(data, opts['params'])
     elif opts['output'] == 'postgres':
         outputPostgres(data, opts['params'])
-    elif opts['output'] == 'mongodb':
-        outputMongodb(data, opts['params'])
     elif opts['output']:
         print_info ("using %s with params %s." %
                     (opts['database'],opts['params']))
@@ -147,13 +144,6 @@ def outputJSON(data,fout):
             f.write(json.dumps(data)+'\n')
     except:
         print_error("Failed to write data as JSON to file %s." % (fout))
-
-def outputMongodb(data,dbconnstr):
-    client = MongoClient(dbconnstr)
-    db = client.get_default_database()
-    ds = db.datasets
-    ds_id = ds.insert_one(data).inserted_id
-    print_info("Insert ID: %s" % (str(ds_id)))
 
 def outputPostgres(data,dbconnstr):
     print_info(dbconnstr)
@@ -320,12 +310,6 @@ def main():
     omode.add_argument('-j', '--json',
                         help='Write data to JSON file.',
                         default=False)
-    omode.add_argument('-c', '--couchdb',
-                        help='Write data to CouchDB.',
-                        default=False)
-    omode.add_argument('-m', '--mongodb',
-                        help='Write data to MongoDB.',
-                        default=False)
     omode.add_argument('-p', '--postgres',
                         help='Write data to PostgresqlDB.',
                         default=False)
@@ -351,12 +335,6 @@ def main():
 
     oopts = dict()
     oopts['output'] = False
-    if args['couchdb']:
-        oopts['output'] = 'couchdb'
-        oopts['params'] = args['couchdb']
-    if args['mongodb']:
-        oopts['output'] = 'mongodb'
-        oopts['params'] = args['mongodb']
     if args['postgres']:
         oopts['output'] = 'postgres'
         oopts['params'] = args['postgres']
@@ -432,7 +410,6 @@ def main():
     print_log("FINISH: " + end_time.strftime('%Y-%m-%d %H:%M:%S'))
     done_time = end_time - start_time
     print_log("  processing time [s]: " + str(done_time.total_seconds()))
-
 
 if __name__ == "__main__":
     main()

@@ -46,13 +46,13 @@ reserved_ipv4 = IPSet (['0.0.0.0/8',                                        # ho
                         '224.0.0.0/4',                                      # multicast address space
                         '240.0.0.0/4',                                      # future use (RFC1122)
                         '255.255.255.255/32'                                # limited broadcast
-                    ]) 
+                    ])
 
 '''
 OUTPUT FORMAT:
 
-timestamp|date ; input type (RIB|UPDATE) ; source (route-views.xyz| rrcXY) ; \ 
-    #ipv4-prefixes/pfxlength (1..32) ; #ipv4 moas ; #ipv4 bogus \ 
+timestamp|date ; input type (RIB|UPDATE) ; source (route-views.xyz| rrcXY) ; \
+    #ipv4-prefixes/pfxlength (1..32) ; #ipv4 moas ; #ipv4 bogus \
     [; #ipv6-prefix/pfxlength ; #ipv6 moas ; #ipv6 bogus ]
 
 NOTE:
@@ -226,7 +226,7 @@ def inputThread(file_list, stats_queue, diffs_queue):
             stats_queue.put(data)
             diffs_queue.put(data)
     except Exception, e:
-        print_error("inputThread: some error: %s" % e) 
+        print_error("inputThread: some error: %s" % e)
     finally:
         # send done to other threads to stop them
         stats_queue.put('DONE')
@@ -305,7 +305,7 @@ def outputStats (fout, ts, mt, st, pl, pi, pb, pm):
         if fout:
             fn = mt+'.'+st+'.stats.csv'
             with open(fn, "a+") as f:
-                f.write(output+'\n') 
+                f.write(output+'\n')
         else:
             print(output)
             sys.stdout.flush()
@@ -316,9 +316,9 @@ def outputDiffs(fout, ts0, ts1, mt, st, diffs):
     if fout:
         fn = mt+'.'+st+'.diffs.csv'
         with open(fn, "a+") as f:
-                f.write(output+'\n') 
+                f.write(output+'\n')
     else:
-        print(output)   
+        print(output)
         sys.stdout.flush()
 
 def main():
@@ -333,7 +333,7 @@ def main():
     parser.add_argument('-r', '--recursive',    help='Search directories recursivly if in bulk mode.', action='store_true')
     parser.add_argument('-f', '--file',         help='Write results to files stats.csv and diffs.csv in working directory.', action='store_true', default=False)
     args = vars(parser.parse_args())
-    
+
     global verbose
     verbose   = args['verbose']
 

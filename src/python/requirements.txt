@@ -2,4 +2,3 @@ bz2file
 netaddr
 py-radix
 psycopg2
-pymongo
