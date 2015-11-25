@@ -123,8 +123,9 @@ def get_origins(dbconnstr, did, ts_str):
 def get_stat(pt):
     print_log("CALL get_stat")
     ips = IPSet(pt.keys())
-    num_ips_all = len(ips)
-    num_ips_valid = len(ips - reserved_ipv6)
+    num_ips_all = ips.size
+    ips_valid = (ips - reserved_ipv6)
+    num_ips_valid = ips_valid.size
     num_ips_bogus = num_ips_all - num_ips_valid
     ipspace = 0
     pfxlen = dict()
