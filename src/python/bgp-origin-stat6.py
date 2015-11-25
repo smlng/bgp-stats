@@ -124,11 +124,10 @@ def get_origins(dbconnstr, did, ts_str):
 def get_stat(pt):
     print_log("CALL get_stat")
     ips = IPSet(pt.keys())
-    num_ips_all = ips.size
-    ips_valid = (ips - reserved_ipv6)
-    tmp_ips_valid = ips_valid.size
-    num_ips_valid = tmp_ips_valid / math.pow(2,32)
-    num_ips_bogus = (num_ips_all - tmp_ips_valid) / math.pow(2,32)
+    num_ips_all = 0
+    ips_valid = 0
+    num_ips_valid = 0
+    num_ips_bogus = 0
     ipspace = 0
     pfxlen = dict()
     asn = set()
