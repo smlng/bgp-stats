@@ -228,7 +228,7 @@ def outputPostgres(data,dbconnstr):
     except Exception, e:
         print_error("QUERY t_prefixes (2) failed with: %s" % (e.message))
         con.rollback()
-    t_file = "/tmp/" + t_origins_ym + ".copy"
+    t_file = "/tmp/" + t_origins_ym + "." + data['maptype'] + "." + data['subtype'] + ".copy"
     # insert all origins into database
     f = open(t_file, "wb")
     for p in origins:
