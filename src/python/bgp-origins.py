@@ -251,7 +251,9 @@ def outputPostgres(data,dbconnstr):
         if pid > 0:
             for a in p['origins']:
                 if (int(a)>0) and (int(did)>0):
-                    f.write("%s\t%s\t%s\n" % (did,pid,a))
+                    line = did+"\t"+pid+"\t"+a+"\n"
+                    line = line.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
+                    f.write(line)
     f.close()
     try:
         copy_from_stdin = "COPY %s FROM STDIN"
