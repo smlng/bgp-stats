@@ -249,11 +249,13 @@ def outputPostgres(data,dbconnstr):
                 pid = cur.fetchone()[0]
             prefix_ids[p['prefix']] = pid
         if pid > 0:
-            for a in p['origins']:
-                if (int(a)>0) and (int(did)>0):
-                    line = did+"\t"+pid+"\t"+a+"\n"
-                    line = line.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
-                    f.write(line)
+            for b in p['origins']:
+                c = b.split()
+                for a in c:
+                    if (int(a)>0) and (int(did)>0):
+                        line = str(did)+"\t"+str(pid)+"\t"+str(a)+"\n"
+                        line = line.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
+                        f.write(line)
     f.close()
     try:
         copy_from_stdin = "COPY %s FROM STDIN"
