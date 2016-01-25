@@ -206,8 +206,8 @@ def outputPostgres(data,dbconnstr):
     for p in origins:
         pid = 0
         ptmp = p['prefix']
-        if ptmp.endswith('/32'):
-            ptmp = p['prefix'][:-3]
+        if ptmp.endswith('/128'):
+            ptmp = p['prefix'][:-4]
         if ptmp not in prefix_ids:
             prefix_new.add(p['prefix'])
     # write new prefixes to database
@@ -234,8 +234,8 @@ def outputPostgres(data,dbconnstr):
     for p in origins:
         pid = 0
         ptmp = p['prefix']
-        if ptmp.endswith('/32'):
-            ptmp = p['prefix'][:-3]
+        if ptmp.endswith('/128'):
+            ptmp = p['prefix'][:-4]
         if ptmp in prefix_ids:
             pid = prefix_ids[ptmp]
         else:
